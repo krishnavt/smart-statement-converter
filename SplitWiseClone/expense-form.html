@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Expense - SplitWise</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SplitWise">
+    <meta name="theme-color" content="#6200EE">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 16px;
+            color: #333;
+            padding-top: env(safe-area-inset-top, 44px);
+            padding-bottom: env(safe-area-inset-bottom, 34px);
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 20px;
+        }
+
+        .back-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6200EE;
+            cursor: pointer;
+            margin-right: 16px;
+            padding: 8px;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #6200EE;
+            background: white;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #6200EE;
+            background: white;
+        }
+
+        .amount-input {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            color: #6200EE;
+        }
+
+        .split-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .split-option {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .split-option.active {
+            border-color: #6200EE;
+            background: #f3e5f5;
+            color: #6200EE;
+        }
+
+        .split-option:hover {
+            border-color: #6200EE;
+        }
+
+        .members-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .member-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .member-tag.selected {
+            background: #6200EE;
+            color: white;
+        }
+
+        .submit-button {
+            width: 100%;
+            background: linear-gradient(135deg, #6200EE, #3700B3);
+            color: white;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(98, 0, 238, 0.3);
+        }
+
+        .submit-button:active {
+            transform: scale(0.98);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .notification {
+            position: fixed;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            transform: translateY(-120px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000;
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .quick-amounts {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .quick-amount {
+            padding: 12px 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .quick-amount:hover {
+            border-color: #6200EE;
+            color: #6200EE;
+        }
+
+        .calculator-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .calc-button {
+            aspect-ratio: 1;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .calc-button:active {
+            transform: scale(0.95);
+        }
+
+        .calc-button.operator {
+            background: #6200EE;
+            color: white;
+        }
+
+        .calc-button.clear {
+            background: #ff5722;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        Expense added successfully! 🎉
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <button class="back-button" onclick="goBack()">←</button>
+            <div class="header-title">Add Expense</div>
+        </div>
+
+        <form class="form-card" onsubmit="addExpense(event)">
+            <!-- Amount Section -->
+            <div class="form-group">
+                <label class="form-label">💰 Amount</label>
+                <input 
+                    type="number" 
+                    class="form-input amount-input" 
+                    id="amount" 
+                    placeholder="0.00" 
+                    step="0.01"
+                    required
+                >
+                <div class="quick-amounts">
+                    <div class="quick-amount" onclick="setAmount(10)">$10</div>
+                    <div class="quick-amount" onclick="setAmount(25)">$25</div>
+                    <div class="quick-amount" onclick="setAmount(50)">$50</div>
+                    <div class="quick-amount" onclick="setAmount(100)">$100</div>
+                </div>
+            </div>
+
+            <!-- Description Section -->
+            <div class="form-group">
+                <label class="form-label">📝 Description</label>
+                <input 
+                    type="text" 
+                    class="form-input" 
+                    id="description" 
+                    placeholder="What was this expense for?"
+                    required
+                >
+            </div>
+
+            <!-- Group Selection -->
+            <div class="form-group">
+                <label class="form-label">👥 Group</label>
+                <select class="form-select" id="group" required>
+                    <option value="">Select a group</option>
+                    <option value="weekend-trip">🏔 Weekend Trip</option>
+                    <option value="apartment">🏠 Apartment Expenses</option>
+                    <option value="general">🍽 General Expenses</option>
+                </select>
+            </div>
+
+            <!-- Split Method -->
+            <div class="form-group">
+                <label class="form-label">⚖️ Split Method</label>
+                <div class="split-options">
+                    <div class="split-option active" onclick="selectSplit('equal')" id="split-equal">
+                        <div>📊</div>
+                        <div>Equal</div>
+                    </div>
+                    <div class="split-option" onclick="selectSplit('exact')" id="split-exact">
+                        <div>🎯</div>
+                        <div>Exact</div>
+                    </div>
+                    <div class="split-option" onclick="selectSplit('percentage')" id="split-percentage">
+                        <div>📈</div>
+                        <div>%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Members -->
+            <div class="form-group">
+                <label class="form-label">👤 Split Between</label>
+                <div class="members-list">
+                    <div class="member-tag selected" onclick="toggleMember('you')" id="member-you">
+                        <span>👤 You</span>
+                    </div>
+                    <div class="member-tag selected" onclick="toggleMember('alice')" id="member-alice">
+                        <span>👩 Alice</span>
+                    </div>
+                    <div class="member-tag selected" onclick="toggleMember('bob')" id="member-bob">
+                        <span>👨 Bob</span>
+                    </div>
+                    <div class="member-tag" onclick="toggleMember('charlie')" id="member-charlie">
+                        <span>🧑 Charlie</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="submit-button">
+                Add Expense
+            </button>
+        </form>
+
+        <!-- Quick Calculator -->
+        <div class="form-card">
+            <div class="form-label">🧮 Quick Calculator</div>
+            <div id="calc-display" style="font-size: 18px; padding: 12px; background: #f8f9fa; border-radius: 8px; margin-bottom: 16px;">0</div>
+            <div class="calculator-row">
+                <button class="calc-button clear" onclick="clearCalc()">C</button>
+                <button class="calc-button" onclick="calcInput('/')">÷</button>
+                <button class="calc-button" onclick="calcInput('*')">×</button>
+                <button class="calc-button" onclick="deleteLast()">⌫</button>
+            </div>
+            <div class="calculator-row">
+                <button class="calc-button" onclick="calcInput('7')">7</button>
+                <button class="calc-button" onclick="calcInput('8')">8</button>
+                <button class="calc-button" onclick="calcInput('9')">9</button>
+                <button class="calc-button operator" onclick="calcInput('-')">-</button>
+            </div>
+            <div class="calculator-row">
+                <button class="calc-button" onclick="calcInput('4')">4</button>
+                <button class="calc-button" onclick="calcInput('5')">5</button>
+                <button class="calc-button" onclick="calcInput('6')">6</button>
+                <button class="calc-button operator" onclick="calcInput('+')">+</button>
+            </div>
+            <div class="calculator-row">
+                <button class="calc-button" onclick="calcInput('1')">1</button>
+                <button class="calc-button" onclick="calcInput('2')">2</button>
+                <button class="calc-button" onclick="calcInput('3')">3</button>
+                <button class="calc-button operator" onclick="calculate()" style="grid-row: span 2;">=</button>
+            </div>
+            <div class="calculator-row">
+                <button class="calc-button" onclick="calcInput('0')" style="grid-column: span 2;">0</button>
+                <button class="calc-button" onclick="calcInput('.')">.</button>
+            </div>
+            <button class="quick-amount" onclick="useCalcResult()" style="margin-top: 12px; width: 100%;">
+                Use Result in Amount
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentSplit = 'equal';
+        let selectedMembers = ['you', 'alice', 'bob'];
+        let calcExpression = '';
+        let calcResult = 0;
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification';
+            
+            if (type === 'error') {
+                notification.classList.add('error');
+            }
+            
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'production-app.html';
+            }
+        }
+
+        function setAmount(amount) {
+            document.getElementById('amount').value = amount;
+            
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate(25);
+            }
+        }
+
+        function selectSplit(type) {
+            // Remove active class from all
+            document.querySelectorAll('.split-option').forEach(el => el.classList.remove('active'));
+            
+            // Add active class to selected
+            document.getElementById(`split-${type}`).classList.add('active');
+            currentSplit = type;
+            
+            showNotification(`Split method changed to ${type}`, 'info');
+        }
+
+        function toggleMember(memberId) {
+            const memberElement = document.getElementById(`member-${memberId}`);
+            const isSelected = selectedMembers.includes(memberId);
+            
+            if (isSelected) {
+                if (selectedMembers.length > 1) { // Don't allow removing last member
+                    selectedMembers = selectedMembers.filter(id => id !== memberId);
+                    memberElement.classList.remove('selected');
+                } else {
+                    showNotification('At least one person must be selected', 'error');
+                }
+            } else {
+                selectedMembers.push(memberId);
+                memberElement.classList.add('selected');
+            }
+            
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+        }
+
+        function addExpense(event) {
+            event.preventDefault();
+            
+            const amount = parseFloat(document.getElementById('amount').value);
+            const description = document.getElementById('description').value;
+            const group = document.getElementById('group').value;
+            
+            if (!amount || amount <= 0) {
+                showNotification('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            if (!description.trim()) {
+                showNotification('Please enter a description', 'error');
+                return;
+            }
+            
+            if (!group) {
+                showNotification('Please select a group', 'error');
+                return;
+            }
+            
+            if (selectedMembers.length === 0) {
+                showNotification('Please select at least one person', 'error');
+                return;
+            }
+            
+            // Calculate split
+            const perPerson = amount / selectedMembers.length;
+            const memberNames = {
+                'you': 'You',
+                'alice': 'Alice',
+                'bob': 'Bob',
+                'charlie': 'Charlie'
+            };
+            
+            const selectedMemberNames = selectedMembers.map(id => memberNames[id]).join(', ');
+            
+            // Simulate expense creation
+            const expense = {
+                id: Date.now(),
+                amount: amount,
+                description: description,
+                group: group,
+                splitMethod: currentSplit,
+                members: selectedMembers,
+                perPerson: perPerson,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Store expense (in real app, this would go to database)
+            let expenses = JSON.parse(localStorage.getItem('splitwise_expenses') || '[]');
+            expenses.unshift(expense);
+            localStorage.setItem('splitwise_expenses', JSON.stringify(expenses));
+            
+            // Success feedback
+            showNotification(`Added ${description} for $${amount.toFixed(2)}! Split ${currentSplit}ly between ${selectedMemberNames}.`);
+            
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+            
+            // Reset form
+            setTimeout(() => {
+                document.getElementById('amount').value = '';
+                document.getElementById('description').value = '';
+                document.getElementById('group').value = '';
+                
+                // Redirect back after 2 seconds
+                setTimeout(() => {
+                    goBack();
+                }, 2000);
+            }, 1000);
+        }
+
+        // Calculator Functions
+        function calcInput(value) {
+            if (calcExpression === '0') {
+                calcExpression = '';
+            }
+            calcExpression += value;
+            document.getElementById('calc-display').textContent = calcExpression || '0';
+        }
+
+        function clearCalc() {
+            calcExpression = '';
+            calcResult = 0;
+            document.getElementById('calc-display').textContent = '0';
+        }
+
+        function deleteLast() {
+            calcExpression = calcExpression.slice(0, -1);
+            document.getElementById('calc-display').textContent = calcExpression || '0';
+        }
+
+        function calculate() {
+            try {
+                // Replace display symbols with actual operators
+                const expression = calcExpression.replace(/×/g, '*').replace(/÷/g, '/');
+                calcResult = eval(expression);
+                document.getElementById('calc-display').textContent = calcResult.toFixed(2);
+                calcExpression = calcResult.toString();
+            } catch (error) {
+                document.getElementById('calc-display').textContent = 'Error';
+                calcExpression = '';
+            }
+        }
+
+        function useCalcResult() {
+            if (calcResult > 0) {
+                document.getElementById('amount').value = calcResult.toFixed(2);
+                showNotification(`Amount set to $${calcResult.toFixed(2)}`);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            showNotification('Ready to add a new expense! 💰');
+        });
+    </script>
+</body>
+</html>
