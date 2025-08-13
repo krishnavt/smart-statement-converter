@@ -597,6 +597,13 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
             showNotification('Ready to add a new expense! 💰');
         });
     </script>

@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - SplitWise</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SplitWise">
+    <meta name="theme-color" content="#6200EE">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            padding: 16px;
+            color: #333;
+            padding-top: env(safe-area-inset-top, 44px);
+            padding-bottom: env(safe-area-inset-bottom, 34px);
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 20px;
+        }
+
+        .back-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #6200EE;
+            cursor: pointer;
+            margin-right: 16px;
+            padding: 8px;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #6200EE, #3700B3);
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            transform: rotate(45deg);
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            position: relative;
+            z-index: 1;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .profile-avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .avatar-image {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .profile-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-email {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #6200EE;
+            background: white;
+        }
+
+        .form-input:disabled {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            border-radius: 8px;
+            margin: 0 -8px;
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .menu-item:active {
+            background-color: #f8f9fa;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-icon {
+            font-size: 20px;
+            margin-right: 16px;
+            min-width: 24px;
+        }
+
+        .menu-content {
+            flex: 1;
+        }
+
+        .menu-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 2px;
+        }
+
+        .menu-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .menu-arrow {
+            font-size: 16px;
+            color: #999;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #6200EE, #3700B3);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .button:active {
+            transform: scale(0.98);
+        }
+
+        .button.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .button.danger {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .notification {
+            position: fixed;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            transform: translateY(-120px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000;
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 320px;
+            width: 90%;
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .modal.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .modal-text {
+            font-size: 16px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modal-button.primary {
+            background: #6200EE;
+            color: white;
+        }
+
+        .modal-button.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .edit-mode .form-input:not(:disabled) {
+            border-color: #6200EE;
+            background: white;
+        }
+
+        @media (max-width: 400px) {
+            body {
+                padding: 12px;
+            }
+            
+            .container {
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        Profile updated! 🎉
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal" id="logoutModal">
+        <div class="modal-content">
+            <div class="modal-title">Sign Out</div>
+            <div class="modal-text">Are you sure you want to sign out of SplitWise?</div>
+            <div class="modal-buttons">
+                <button class="modal-button secondary" onclick="closeModal()">Cancel</button>
+                <button class="modal-button primary" onclick="confirmLogout()">Sign Out</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <button class="back-button" onclick="goBack()">←</button>
+            <div class="header-title">Profile</div>
+        </div>
+
+        <!-- Profile Header -->
+        <div class="profile-header">
+            <div class="profile-avatar" onclick="changeAvatar()" id="profileAvatar">
+                👤
+            </div>
+            <div class="profile-name" id="profileName">Demo User</div>
+            <div class="profile-email" id="profileEmail">demo@splitwise.com</div>
+            
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalExpenses">24</div>
+                    <div class="stat-label">Expenses</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalGroups">3</div>
+                    <div class="stat-label">Groups</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalFriends">12</div>
+                    <div class="stat-label">Friends</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Personal Information -->
+        <div class="card">
+            <div class="card-title">Personal Information</div>
+            
+            <div class="form-group">
+                <label class="form-label">👤 Full Name</label>
+                <input 
+                    type="text" 
+                    class="form-input" 
+                    id="fullName" 
+                    value="Demo User"
+                    disabled
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">📧 Email</label>
+                <input 
+                    type="email" 
+                    class="form-input" 
+                    id="email" 
+                    value="demo@splitwise.com"
+                    disabled
+                >
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">📱 Phone</label>
+                <input 
+                    type="tel" 
+                    class="form-input" 
+                    id="phone" 
+                    value="+1 (555) 123-4567"
+                    disabled
+                >
+            </div>
+
+            <button class="button secondary" onclick="toggleEditMode()" id="editButton">
+                ✏️ Edit Profile
+            </button>
+        </div>
+
+        <!-- Account Settings -->
+        <div class="card">
+            <div class="card-title">Account Settings</div>
+            
+            <div class="menu-item" onclick="changePassword()">
+                <div class="menu-icon">🔒</div>
+                <div class="menu-content">
+                    <div class="menu-title">Change Password</div>
+                    <div class="menu-subtitle">Update your account password</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="manageNotifications()">
+                <div class="menu-icon">🔔</div>
+                <div class="menu-content">
+                    <div class="menu-title">Notifications</div>
+                    <div class="menu-subtitle">Manage notification preferences</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="privacySettings()">
+                <div class="menu-icon">🛡️</div>
+                <div class="menu-content">
+                    <div class="menu-title">Privacy Settings</div>
+                    <div class="menu-subtitle">Control your privacy preferences</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+        </div>
+
+        <!-- App Settings -->
+        <div class="card">
+            <div class="card-title">App Settings</div>
+            
+            <div class="menu-item" onclick="manageGroups()">
+                <div class="menu-icon">👥</div>
+                <div class="menu-content">
+                    <div class="menu-title">Manage Groups</div>
+                    <div class="menu-subtitle">View and edit your groups</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="exportData()">
+                <div class="menu-icon">📊</div>
+                <div class="menu-content">
+                    <div class="menu-title">Export Data</div>
+                    <div class="menu-subtitle">Download your expense history</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="appSettings()">
+                <div class="menu-icon">⚙️</div>
+                <div class="menu-content">
+                    <div class="menu-title">App Preferences</div>
+                    <div class="menu-subtitle">Currency, language, and more</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+        </div>
+
+        <!-- Support -->
+        <div class="card">
+            <div class="card-title">Support</div>
+            
+            <div class="menu-item" onclick="helpCenter()">
+                <div class="menu-icon">❓</div>
+                <div class="menu-content">
+                    <div class="menu-title">Help Center</div>
+                    <div class="menu-subtitle">FAQs and support articles</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="contactSupport()">
+                <div class="menu-icon">💬</div>
+                <div class="menu-content">
+                    <div class="menu-title">Contact Support</div>
+                    <div class="menu-subtitle">Get help from our team</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+
+            <div class="menu-item" onclick="reportBug()">
+                <div class="menu-icon">🐛</div>
+                <div class="menu-content">
+                    <div class="menu-title">Report a Bug</div>
+                    <div class="menu-subtitle">Help us improve SplitWise</div>
+                </div>
+                <div class="menu-arrow">›</div>
+            </div>
+        </div>
+
+        <!-- Account Actions -->
+        <div class="card">
+            <button class="button danger" onclick="showLogoutModal()">
+                🚪 Sign Out
+            </button>
+            
+            <button class="button secondary" onclick="deleteAccount()">
+                🗑️ Delete Account
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let isEditMode = false;
+        let currentUser = null;
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification';
+            
+            if (type === 'error') {
+                notification.classList.add('error');
+            } else if (type === 'info') {
+                notification.classList.add('info');
+            }
+            
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = 'production-app.html';
+            }
+        }
+
+        function loadUserProfile() {
+            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+            
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            try {
+                const sessionData = JSON.parse(session);
+                currentUser = sessionData.user;
+                
+                // Update profile display
+                document.getElementById('profileName').textContent = currentUser.name;
+                document.getElementById('profileEmail').textContent = currentUser.email;
+                document.getElementById('fullName').value = currentUser.name;
+                document.getElementById('email').value = currentUser.email;
+                
+                // Update avatar
+                const avatarElement = document.getElementById('profileAvatar');
+                if (currentUser.avatar && currentUser.avatar.includes('http')) {
+                    avatarElement.innerHTML = `<img src="${currentUser.avatar}" class="avatar-image" alt="Profile">`;
+                } else {
+                    const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
+                    avatarElement.textContent = initials;
+                }
+                
+                // Update phone if available
+                if (currentUser.phone) {
+                    document.getElementById('phone').value = currentUser.phone;
+                }
+                
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+                window.location.href = 'login.html';
+            }
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const editButton = document.getElementById('editButton');
+            const inputs = ['fullName', 'phone'];
+            
+            if (isEditMode) {
+                editButton.textContent = '💾 Save Changes';
+                editButton.className = 'button';
+                document.body.classList.add('edit-mode');
+                
+                inputs.forEach(id => {
+                    document.getElementById(id).disabled = false;
+                });
+                
+                showNotification('Edit mode enabled! 📝', 'info');
+            } else {
+                // Save changes
+                saveProfile();
+                editButton.textContent = '✏️ Edit Profile';
+                editButton.className = 'button secondary';
+                document.body.classList.remove('edit-mode');
+                
+                inputs.forEach(id => {
+                    document.getElementById(id).disabled = true;
+                });
+            }
+        }
+
+        function saveProfile() {
+            const updatedName = document.getElementById('fullName').value;
+            const updatedPhone = document.getElementById('phone').value;
+            
+            // Update current user data
+            currentUser.name = updatedName;
+            currentUser.phone = updatedPhone;
+            
+            // Update session storage
+            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+            const sessionData = JSON.parse(session);
+            sessionData.user = currentUser;
+            
+            if (localStorage.getItem('splitwise_session')) {
+                localStorage.setItem('splitwise_session', JSON.stringify(sessionData));
+            } else {
+                sessionStorage.setItem('splitwise_session', JSON.stringify(sessionData));
+            }
+            
+            // Update profile display
+            document.getElementById('profileName').textContent = currentUser.name;
+            
+            showNotification('Profile updated successfully! 🎉');
+            
+            // Haptic feedback
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        function changeAvatar() {
+            showNotification('Photo upload coming soon! 📸', 'info');
+        }
+
+        function changePassword() {
+            showNotification('Password change coming soon! 🔒', 'info');
+        }
+
+        function manageNotifications() {
+            showNotification('Notification settings coming soon! 🔔', 'info');
+        }
+
+        function privacySettings() {
+            showNotification('Privacy settings coming soon! 🛡️', 'info');
+        }
+
+        function manageGroups() {
+            showNotification('Group management coming soon! 👥', 'info');
+        }
+
+        function exportData() {
+            showNotification('Data export starting... 📊', 'info');
+            
+            // Simulate data export
+            setTimeout(() => {
+                showNotification('Export complete! Check your downloads 📁');
+            }, 2000);
+        }
+
+        function appSettings() {
+            showNotification('App preferences coming soon! ⚙️', 'info');
+        }
+
+        function helpCenter() {
+            showNotification('Opening help center... ❓', 'info');
+        }
+
+        function contactSupport() {
+            showNotification('Support chat coming soon! 💬', 'info');
+        }
+
+        function reportBug() {
+            showNotification('Bug report form coming soon! 🐛', 'info');
+        }
+
+        function showLogoutModal() {
+            document.getElementById('logoutModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('logoutModal').classList.remove('show');
+        }
+
+        function confirmLogout() {
+            // Clear session data
+            localStorage.removeItem('splitwise_session');
+            sessionStorage.removeItem('splitwise_session');
+            
+            showNotification('Signed out successfully! 👋');
+            
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 1000);
+        }
+
+        function deleteAccount() {
+            const confirmation = confirm('Are you sure you want to delete your account? This action cannot be undone.');
+            
+            if (confirmation) {
+                showNotification('Account deletion process initiated... 🗑️', 'info');
+                
+                setTimeout(() => {
+                    localStorage.removeItem('splitwise_session');
+                    sessionStorage.removeItem('splitwise_session');
+                    showNotification('Account deleted. We\'re sorry to see you go! 😢');
+                    
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                }, 2000);
+            }
+        }
+
+        // Initialize profile
+        document.addEventListener('DOMContentLoaded', function() {
+            loadUserProfile();
+            
+            // Simulate loading stats
+            setTimeout(() => {
+                document.getElementById('totalExpenses').textContent = Math.floor(Math.random() * 50) + 10;
+                document.getElementById('totalGroups').textContent = Math.floor(Math.random() * 8) + 2;
+                document.getElementById('totalFriends').textContent = Math.floor(Math.random() * 20) + 5;
+            }, 1000);
+        });
+
+        // Close modal on outside click
+        document.getElementById('logoutModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

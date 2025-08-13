@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - SplitWise</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SplitWise">
+    <meta name="theme-color" content="#6200EE">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: env(safe-area-inset-top, 44px);
+            padding-bottom: env(safe-area-inset-bottom, 34px);
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .app-logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .app-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 8px;
+        }
+
+        .app-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .auth-card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .auth-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .auth-subtitle {
+            font-size: 16px;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #6200EE;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(98, 0, 238, 0.1);
+        }
+
+        .form-input.error {
+            border-color: #f44336;
+            background: #ffeaea;
+        }
+
+        .form-input.success {
+            border-color: #4CAF50;
+            background: #f0fff4;
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .success-message {
+            color: #4CAF50;
+            font-size: 14px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .password-strength {
+            margin-top: 12px;
+        }
+
+        .strength-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .strength-fill {
+            height: 100%;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+
+        .strength-text {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .terms-privacy {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .terms-privacy input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #6200EE;
+            margin-top: 2px;
+        }
+
+        .terms-text {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .terms-text a {
+            color: #6200EE;
+            text-decoration: none;
+        }
+
+        .terms-text a:hover {
+            text-decoration: underline;
+        }
+
+        .submit-button {
+            width: 100%;
+            background: linear-gradient(135deg, #6200EE, #3700B3);
+            color: white;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(98, 0, 238, 0.3);
+            margin-bottom: 24px;
+        }
+
+        .submit-button:active {
+            transform: scale(0.98);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 24px 0;
+            position: relative;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e0e0e0;
+            z-index: 1;
+        }
+
+        .divider span {
+            background: white;
+            padding: 0 16px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .social-login {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .social-button {
+            flex: 1;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .social-button:hover {
+            border-color: #6200EE;
+            transform: translateY(-2px);
+        }
+
+        .auth-switch {
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .auth-switch a {
+            color: #6200EE;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .auth-switch a:hover {
+            text-decoration: underline;
+        }
+
+        .notification {
+            position: fixed;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            transform: translateY(-120px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000;
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+
+        @media (max-width: 400px) {
+            body {
+                padding: 16px;
+            }
+            
+            .auth-card {
+                padding: 24px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .avatar-preview {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: #666;
+            border: 3px solid #e0e0e0;
+        }
+
+        .profile-section {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="notification" id="notification">
+        Welcome to SplitWise! 🎉
+    </div>
+
+    <div class="container">
+        <div class="app-logo">
+            <div class="logo-icon">💰</div>
+            <div class="app-title">SplitWise</div>
+            <div class="app-subtitle">Split expenses with friends</div>
+        </div>
+
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-title">Create Account</div>
+                <div class="auth-subtitle">Join SplitWise and start splitting expenses</div>
+            </div>
+
+            <div class="profile-section">
+                <div class="avatar-preview" id="avatarPreview">👤</div>
+            </div>
+
+            <form id="registerForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">👤 First Name</label>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            id="firstName" 
+                            placeholder="First name"
+                            required
+                        >
+                        <div class="error-message" id="firstNameError">First name is required</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">👤 Last Name</label>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            id="lastName" 
+                            placeholder="Last name"
+                            required
+                        >
+                        <div class="error-message" id="lastNameError">Last name is required</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📧 Email</label>
+                    <input 
+                        type="email" 
+                        class="form-input" 
+                        id="email" 
+                        placeholder="Enter your email"
+                        required
+                    >
+                    <div class="error-message" id="emailError">Please enter a valid email</div>
+                    <div class="success-message" id="emailSuccess">Email is available</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📱 Phone Number</label>
+                    <input 
+                        type="tel" 
+                        class="form-input" 
+                        id="phone" 
+                        placeholder="+1 (555) 123-4567"
+                    >
+                    <div class="error-message" id="phoneError">Please enter a valid phone number</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🔒 Password</label>
+                    <div class="password-container">
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="password" 
+                            placeholder="Create a password"
+                            required
+                        >
+                        <button type="button" class="password-toggle" onclick="togglePassword('password')">👁️</button>
+                    </div>
+                    <div class="password-strength" id="passwordStrength">
+                        <div class="strength-bar">
+                            <div class="strength-fill" id="strengthFill"></div>
+                        </div>
+                        <div class="strength-text" id="strengthText">Password strength</div>
+                    </div>
+                    <div class="error-message" id="passwordError">Password must be at least 8 characters</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🔒 Confirm Password</label>
+                    <div class="password-container">
+                        <input 
+                            type="password" 
+                            class="form-input" 
+                            id="confirmPassword" 
+                            placeholder="Confirm your password"
+                            required
+                        >
+                        <button type="button" class="password-toggle" onclick="togglePassword('confirmPassword')">👁️</button>
+                    </div>
+                    <div class="error-message" id="confirmPasswordError">Passwords don't match</div>
+                </div>
+
+                <div class="terms-privacy">
+                    <input type="checkbox" id="agreeTerms" required>
+                    <div class="terms-text">
+                        I agree to the <a href="#" onclick="showTerms()">Terms of Service</a> and 
+                        <a href="#" onclick="showPrivacy()">Privacy Policy</a>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-button" id="registerButton">
+                    Create Account
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>or sign up with</span>
+            </div>
+
+            <div class="social-login">
+                <button class="social-button" onclick="socialRegister('google')">
+                    🔍 Google
+                </button>
+                <button class="social-button" onclick="socialRegister('apple')">
+                    🍎 Apple
+                </button>
+            </div>
+
+            <div class="auth-switch">
+                Already have an account? 
+                <a href="login.html">Sign in</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoading = false;
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification';
+            
+            if (type === 'error') {
+                notification.classList.add('error');
+            } else if (type === 'info') {
+                notification.classList.add('info');
+            }
+            
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function togglePassword(fieldId) {
+            const passwordInput = document.getElementById(fieldId);
+            const toggleButton = passwordInput.nextElementSibling;
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleButton.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleButton.textContent = '👁️';
+            }
+        }
+
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function validatePhone(phone) {
+            const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+            return phoneRegex.test(phone.replace(/[\s\(\)\-]/g, ''));
+        }
+
+        function calculatePasswordStrength(password) {
+            let strength = 0;
+            let strengthText = '';
+            let color = '';
+
+            if (password.length >= 8) strength += 1;
+            if (password.match(/[a-z]/)) strength += 1;
+            if (password.match(/[A-Z]/)) strength += 1;
+            if (password.match(/[0-9]/)) strength += 1;
+            if (password.match(/[^a-zA-Z0-9]/)) strength += 1;
+
+            switch (strength) {
+                case 0:
+                case 1:
+                    strengthText = 'Very Weak';
+                    color = '#f44336';
+                    break;
+                case 2:
+                    strengthText = 'Weak';
+                    color = '#ff9800';
+                    break;
+                case 3:
+                    strengthText = 'Fair';
+                    color = '#ffeb3b';
+                    break;
+                case 4:
+                    strengthText = 'Good';
+                    color = '#8bc34a';
+                    break;
+                case 5:
+                    strengthText = 'Strong';
+                    color = '#4caf50';
+                    break;
+            }
+
+            return { strength, strengthText, color };
+        }
+
+        function updatePasswordStrength() {
+            const password = document.getElementById('password').value;
+            const strengthFill = document.getElementById('strengthFill');
+            const strengthText = document.getElementById('strengthText');
+
+            if (!password) {
+                strengthFill.style.width = '0%';
+                strengthText.textContent = 'Password strength';
+                return;
+            }
+
+            const { strength, strengthText: text, color } = calculatePasswordStrength(password);
+            const percentage = (strength / 5) * 100;
+
+            strengthFill.style.width = percentage + '%';
+            strengthFill.style.backgroundColor = color;
+            strengthText.textContent = text;
+        }
+
+        function updateAvatar() {
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const avatarPreview = document.getElementById('avatarPreview');
+
+            if (firstName || lastName) {
+                const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+                avatarPreview.textContent = initials;
+                avatarPreview.style.background = '#6200EE';
+                avatarPreview.style.color = 'white';
+            } else {
+                avatarPreview.textContent = '👤';
+                avatarPreview.style.background = '#f0f0f0';
+                avatarPreview.style.color = '#666';
+            }
+        }
+
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            const errorElement = document.getElementById(fieldId + 'Error');
+            const successElement = document.getElementById(fieldId + 'Success');
+            
+            field.classList.add('error');
+            field.classList.remove('success');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            
+            if (successElement) {
+                successElement.style.display = 'none';
+            }
+        }
+
+        function showSuccess(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            const errorElement = document.getElementById(fieldId + 'Error');
+            const successElement = document.getElementById(fieldId + 'Success');
+            
+            field.classList.remove('error');
+            field.classList.add('success');
+            errorElement.style.display = 'none';
+            
+            if (successElement) {
+                successElement.textContent = message;
+                successElement.style.display = 'block';
+            }
+        }
+
+        function clearError(fieldId) {
+            const field = document.getElementById(fieldId);
+            const errorElement = document.getElementById(fieldId + 'Error');
+            const successElement = document.getElementById(fieldId + 'Success');
+            
+            field.classList.remove('error');
+            errorElement.style.display = 'none';
+            
+            if (successElement) {
+                successElement.style.display = 'none';
+            }
+        }
+
+        function validateForm() {
+            let isValid = true;
+            
+            // Clear previous errors
+            ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'].forEach(clearError);
+            
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const agreeTerms = document.getElementById('agreeTerms').checked;
+            
+            if (!firstName) {
+                showError('firstName', 'First name is required');
+                isValid = false;
+            } else if (firstName.length < 2) {
+                showError('firstName', 'First name must be at least 2 characters');
+                isValid = false;
+            }
+            
+            if (!lastName) {
+                showError('lastName', 'Last name is required');
+                isValid = false;
+            } else if (lastName.length < 2) {
+                showError('lastName', 'Last name must be at least 2 characters');
+                isValid = false;
+            }
+            
+            if (!email) {
+                showError('email', 'Email is required');
+                isValid = false;
+            } else if (!validateEmail(email)) {
+                showError('email', 'Please enter a valid email address');
+                isValid = false;
+            }
+            
+            if (phone && !validatePhone(phone)) {
+                showError('phone', 'Please enter a valid phone number');
+                isValid = false;
+            }
+            
+            if (!password) {
+                showError('password', 'Password is required');
+                isValid = false;
+            } else if (password.length < 8) {
+                showError('password', 'Password must be at least 8 characters');
+                isValid = false;
+            }
+            
+            if (!confirmPassword) {
+                showError('confirmPassword', 'Please confirm your password');
+                isValid = false;
+            } else if (password !== confirmPassword) {
+                showError('confirmPassword', 'Passwords don\'t match');
+                isValid = false;
+            }
+            
+            if (!agreeTerms) {
+                showNotification('Please agree to the Terms of Service and Privacy Policy', 'error');
+                isValid = false;
+            }
+            
+            return isValid;
+        }
+
+        function setLoading(loading) {
+            isLoading = loading;
+            const button = document.getElementById('registerButton');
+            
+            if (loading) {
+                button.innerHTML = '<span class="loading"></span>Creating Account...';
+                button.disabled = true;
+            } else {
+                button.innerHTML = 'Create Account';
+                button.disabled = false;
+            }
+        }
+
+        function register(userData) {
+            // Simulate API call
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    // Check if email already exists (demo)
+                    const existingEmails = ['existing@example.com', 'taken@splitwise.com'];
+                    
+                    if (existingEmails.includes(userData.email)) {
+                        reject(new Error('Email already exists'));
+                        return;
+                    }
+                    
+                    // Create user account
+                    const newUser = {
+                        id: Date.now(),
+                        ...userData,
+                        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.firstName + ' ' + userData.lastName)}&background=6200EE&color=fff`,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    // Auto-login after registration
+                    const sessionData = {
+                        user: newUser,
+                        rememberMe: true
+                    };
+                    
+                    localStorage.setItem('splitwise_session', JSON.stringify(sessionData));
+                    resolve(newUser);
+                }, 2000);
+            });
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (isLoading) return;
+            
+            if (!validateForm()) {
+                return;
+            }
+            
+            const userData = {
+                firstName: document.getElementById('firstName').value.trim(),
+                lastName: document.getElementById('lastName').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                password: document.getElementById('password').value
+            };
+            
+            setLoading(true);
+            
+            try {
+                const user = await register(userData);
+                showNotification(`Welcome to SplitWise, ${user.firstName}! 🎉`);
+                
+                // Haptic feedback
+                if (navigator.vibrate) {
+                    navigator.vibrate([100, 50, 100]);
+                }
+                
+                setTimeout(() => {
+                    window.location.href = 'production-app.html';
+                }, 1500);
+                
+            } catch (error) {
+                setLoading(false);
+                if (error.message === 'Email already exists') {
+                    showError('email', 'This email is already registered');
+                } else {
+                    showNotification(error.message, 'error');
+                }
+                
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+            }
+        });
+
+        function socialRegister(provider) {
+            showNotification(`${provider} registration coming soon! 🚀`, 'info');
+        }
+
+        function showTerms() {
+            showNotification('Terms of Service: Use responsibly and split fairly! 📄', 'info');
+        }
+
+        function showPrivacy() {
+            showNotification('Privacy Policy: Your data is secure with us! 🔒', 'info');
+        }
+
+        // Event listeners
+        document.getElementById('firstName').addEventListener('input', updateAvatar);
+        document.getElementById('lastName').addEventListener('input', updateAvatar);
+        document.getElementById('password').addEventListener('input', updatePasswordStrength);
+
+        // Email availability check
+        document.getElementById('email').addEventListener('blur', function() {
+            const email = this.value.trim();
+            if (email && validateEmail(email)) {
+                setTimeout(() => {
+                    const existingEmails = ['existing@example.com', 'taken@splitwise.com'];
+                    if (existingEmails.includes(email)) {
+                        showError('email', 'This email is already registered');
+                    } else {
+                        showSuccess('email', 'Email is available');
+                    }
+                }, 500);
+            }
+        });
+
+        // Clear errors on input
+        ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'].forEach(fieldId => {
+            document.getElementById(fieldId).addEventListener('input', function() {
+                if (this.classList.contains('error')) {
+                    clearError(fieldId);
+                }
+            });
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if already logged in
+            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+            if (session) {
+                window.location.href = 'production-app.html';
+                return;
+            }
+            
+            setTimeout(() => {
+                showNotification('Create your account to start splitting expenses! 💰');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
