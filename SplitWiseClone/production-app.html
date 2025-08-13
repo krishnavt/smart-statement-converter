@@ -14,6 +14,11 @@
     <!-- Icon -->
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIHJ4PSI0MCIgZmlsbD0iIzYyMDBFRSIvPjx0ZXh0IHg9IjkwIiB5PSIxMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjgwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIj7wn5KwPC90ZXh0Pjwvc3ZnPg==">
     
+    <!-- Supabase JavaScript SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Supabase Configuration -->
+    <script src="supabase-config.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -532,18 +537,42 @@
             window.location.href = 'users.html';
         }
 
-        function loadUserSession() {
-            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
-            
-            if (!session) {
-                // No session found, redirect to login
-                window.location.href = 'login.html';
-                return false;
-            }
-            
+        async function loadUserSession() {
             try {
-                const sessionData = JSON.parse(session);
-                currentUser = sessionData.user;
+                // Try Supabase session first
+                if (SupabaseAuth.isAvailable()) {
+                    const session = await SupabaseAuth.getSession();
+                    const user = await SupabaseAuth.getUser();
+                    
+                    if (!user || !session) {
+                        // No session found, redirect to login
+                        window.location.href = 'login.html';
+                        return false;
+                    }
+                    
+                    // Get user profile from database
+                    const profile = await SupabaseDB.getUserProfile(user.id);
+                    
+                    currentUser = {
+                        id: user.id,
+                        email: user.email,
+                        name: profile?.full_name || user.user_metadata?.full_name || user.email.split('@')[0],
+                        avatar: profile?.avatar_url || user.user_metadata?.avatar_url,
+                        phone: profile?.phone,
+                        isSupabase: true
+                    };
+                } else {
+                    // Fallback to local storage
+                    const localSession = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+                    
+                    if (!localSession) {
+                        window.location.href = 'login.html';
+                        return false;
+                    }
+                    
+                    const sessionData = JSON.parse(localSession);
+                    currentUser = sessionData.user;
+                }
                 
                 // Update header with user info
                 document.getElementById('userName').textContent = currentUser.name;
@@ -566,8 +595,9 @@
             }
         }
 
-        function checkAuthentication() {
-            if (!loadUserSession()) {
+        async function checkAuthentication() {
+            const success = await loadUserSession();
+            if (!success) {
                 return; // Will redirect to login
             }
             
@@ -575,7 +605,19 @@
             const isNewSession = !sessionStorage.getItem('app_initialized');
             if (isNewSession) {
                 sessionStorage.setItem('app_initialized', 'true');
-                showNotification(`Welcome back, ${currentUser.name}! 👋`);
+                const modeText = currentUser.isSupabase ? '✅ Production' : '⚠️ Demo';
+                showNotification(`${modeText} | Welcome back, ${currentUser.name}! 👋`);
+            }
+            
+            // Set up auth state listener for Supabase
+            if (SupabaseAuth.isAvailable()) {
+                SupabaseAuth.onAuthStateChange((event, session) => {
+                    if (event === 'SIGNED_OUT') {
+                        window.location.href = 'login.html';
+                    } else if (event === 'TOKEN_REFRESHED') {
+                        console.log('🔄 Token refreshed automatically');
+                    }
+                });
             }
         }
 
@@ -624,13 +666,17 @@
         }
 
         // Initialize app
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Wait for Supabase to initialize
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             // Check authentication first
-            checkAuthentication();
+            await checkAuthentication();
             
             console.log('🚀 SplitWise Production App Loaded');
             console.log('💰 Ready for expense splitting and management');
             console.log('📱 Optimized for iOS and mobile devices');
+            console.log('🔐 Backend:', SupabaseAuth.isAvailable() ? 'Supabase (Production)' : 'Local Storage (Demo)');
             console.log('👤 User authenticated:', currentUser ? currentUser.name : 'None');
         });
 

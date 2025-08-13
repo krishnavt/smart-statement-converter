@@ -11,6 +11,11 @@
     <meta name="apple-mobile-web-app-title" content="SplitWise">
     <meta name="theme-color" content="#6200EE">
     
+    <!-- Supabase JavaScript SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Supabase Configuration -->
+    <script src="supabase-config.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -768,8 +773,57 @@
             }
         }
 
-        function register(userData) {
-            // Simulate API call
+        async function register(userData) {
+            try {
+                // Try Supabase registration first
+                if (SupabaseAuth.isAvailable()) {
+                    const { user, session } = await SupabaseAuth.signUp(
+                        userData.email, 
+                        userData.password,
+                        {
+                            full_name: `${userData.firstName} ${userData.lastName}`,
+                            phone: userData.phone || null
+                        }
+                    );
+                    
+                    if (user) {
+                        // Create user profile in database
+                        await SupabaseDB.updateUserProfile(user.id, {
+                            full_name: `${userData.firstName} ${userData.lastName}`,
+                            email: userData.email,
+                            phone: userData.phone || null,
+                            avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.firstName + ' ' + userData.lastName)}&background=6200EE&color=fff`
+                        });
+                        
+                        return {
+                            id: user.id,
+                            firstName: userData.firstName,
+                            lastName: userData.lastName,
+                            email: userData.email,
+                            phone: userData.phone,
+                            needsEmailConfirmation: !user.email_confirmed_at
+                        };
+                    }
+                } else {
+                    // Fallback to demo mode
+                    console.warn('🔄 Supabase not available, using demo registration');
+                    return await registerDemo(userData);
+                }
+            } catch (error) {
+                // Handle specific Supabase errors
+                if (error.message.includes('User already registered')) {
+                    throw new Error('Email already exists');
+                } else if (error.message.includes('Password should be')) {
+                    throw new Error('Password must be at least 6 characters');
+                } else {
+                    console.warn('🔄 Supabase error, falling back to demo mode:', error.message);
+                    return await registerDemo(userData);
+                }
+            }
+        }
+
+        // Demo registration fallback
+        function registerDemo(userData) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
                     // Check if email already exists (demo)
@@ -784,8 +838,10 @@
                     const newUser = {
                         id: Date.now(),
                         ...userData,
+                        name: `${userData.firstName} ${userData.lastName}`,
                         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.firstName + ' ' + userData.lastName)}&background=6200EE&color=fff`,
-                        createdAt: new Date().toISOString()
+                        createdAt: new Date().toISOString(),
+                        isDemo: true
                     };
                     
                     // Auto-login after registration
@@ -821,16 +877,24 @@
             
             try {
                 const user = await register(userData);
-                showNotification(`Welcome to SplitWise, ${user.firstName}! 🎉`);
                 
-                // Haptic feedback
-                if (navigator.vibrate) {
-                    navigator.vibrate([100, 50, 100]);
+                if (user.needsEmailConfirmation) {
+                    showNotification(`Account created! Please check your email to verify your account. 📧`);
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 3000);
+                } else {
+                    showNotification(`Welcome to SplitWise, ${user.firstName}! 🎉`);
+                    
+                    // Haptic feedback
+                    if (navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]);
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.href = 'production-app.html';
+                    }, 1500);
                 }
-                
-                setTimeout(() => {
-                    window.location.href = 'production-app.html';
-                }, 1500);
                 
             } catch (error) {
                 setLoading(false);
@@ -846,8 +910,18 @@
             }
         });
 
-        function socialRegister(provider) {
-            showNotification(`${provider} registration coming soon! 🚀`, 'info');
+        async function socialRegister(provider) {
+            try {
+                if (SupabaseAuth.isAvailable()) {
+                    showNotification(`Redirecting to ${provider} signup... 🔐`, 'info');
+                    await SupabaseAuth.signInWithOAuth(provider);
+                    // Supabase will handle the redirect
+                } else {
+                    showNotification(`${provider} registration coming soon! 🚀`, 'info');
+                }
+            } catch (error) {
+                showNotification('Social registration failed: ' + error.message, 'error');
+            }
         }
 
         function showTerms() {
@@ -888,16 +962,36 @@
         });
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if already logged in
-            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
-            if (session) {
-                window.location.href = 'production-app.html';
-                return;
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Wait for Supabase to initialize
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            try {
+                // Check if already logged in
+                if (SupabaseAuth.isAvailable()) {
+                    const session = await SupabaseAuth.getSession();
+                    if (session?.user) {
+                        window.location.href = 'production-app.html';
+                        return;
+                    }
+                } else {
+                    // Fallback to local storage check
+                    const localSession = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+                    if (localSession) {
+                        window.location.href = 'production-app.html';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.warn('Session check failed:', error);
             }
             
             setTimeout(() => {
-                showNotification('Create your account to start splitting expenses! 💰');
+                if (SupabaseAuth.isAvailable()) {
+                    showNotification('✅ Production mode: Create your account to start splitting expenses! 💰');
+                } else {
+                    showNotification('⚠️ Demo mode: Create your account to start splitting expenses! 💰');
+                }
             }, 1000);
         });
     </script>

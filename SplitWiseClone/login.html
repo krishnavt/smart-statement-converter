@@ -11,6 +11,11 @@
     <meta name="apple-mobile-web-app-title" content="SplitWise">
     <meta name="theme-color" content="#6200EE">
     
+    <!-- Supabase JavaScript SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Supabase Configuration -->
+    <script src="supabase-config.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -488,8 +493,52 @@
             }
         }
 
-        function login(email, password, rememberMe) {
-            // Simulate API call
+        async function login(email, password, rememberMe) {
+            try {
+                // Try Supabase authentication first
+                if (SupabaseAuth.isAvailable()) {
+                    const { user, session } = await SupabaseAuth.signIn(email, password);
+                    
+                    if (user && session) {
+                        // Get or create user profile
+                        let profile = await SupabaseDB.getUserProfile(user.id);
+                        
+                        if (!profile) {
+                            // Create profile if it doesn't exist
+                            profile = await SupabaseDB.updateUserProfile(user.id, {
+                                full_name: user.user_metadata?.full_name || user.email.split('@')[0],
+                                email: user.email,
+                                avatar_url: user.user_metadata?.avatar_url || null
+                            });
+                        }
+                        
+                        // Supabase handles session storage automatically
+                        return {
+                            email: user.email,
+                            name: profile?.full_name || user.email.split('@')[0],
+                            id: user.id,
+                            avatar: profile?.avatar_url
+                        };
+                    }
+                } else {
+                    // Fallback to demo mode if Supabase not available
+                    console.warn('🔄 Supabase not available, using demo authentication');
+                    return await loginDemo(email, password, rememberMe);
+                }
+            } catch (error) {
+                // If Supabase fails, try demo mode for development
+                if (error.message.includes('Invalid login credentials') || 
+                    error.message.includes('Email not confirmed')) {
+                    throw error; // Re-throw actual auth errors
+                }
+                
+                console.warn('🔄 Supabase error, falling back to demo mode:', error.message);
+                return await loginDemo(email, password, rememberMe);
+            }
+        }
+
+        // Demo authentication fallback
+        function loginDemo(email, password, rememberMe) {
             return new Promise((resolve, reject) => {
                 setTimeout(() => {
                     // Demo user credentials
@@ -502,14 +551,15 @@
                     const user = demoUsers.find(u => u.email === email && u.password === password);
                     
                     if (user) {
-                        // Store user session
+                        // Store user session for demo mode
                         const sessionData = {
                             user: {
                                 id: Date.now(),
                                 email: user.email,
                                 name: user.name,
                                 avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=6200EE&color=fff`,
-                                loginTime: new Date().toISOString()
+                                loginTime: new Date().toISOString(),
+                                isDemo: true
                             },
                             rememberMe: rememberMe
                         };
@@ -566,46 +616,94 @@
             }
         });
 
-        function socialLogin(provider) {
-            showNotification(`${provider} login coming soon! 🚀`, 'info');
+        async function socialLogin(provider) {
+            try {
+                if (SupabaseAuth.isAvailable()) {
+                    showNotification(`Redirecting to ${provider} login... 🔐`, 'info');
+                    await SupabaseAuth.signInWithOAuth(provider);
+                    // Supabase will handle the redirect
+                } else {
+                    // Demo fallback
+                    showNotification(`${provider} login coming soon! 🚀`, 'info');
+                    
+                    setTimeout(() => {
+                        const socialUser = {
+                            email: `user@${provider}.com`,
+                            name: `${provider} User`,
+                            avatar: `https://ui-avatars.com/api/?name=${provider}&background=6200EE&color=fff`
+                        };
+                        
+                        const sessionData = {
+                            user: {
+                                id: Date.now(),
+                                ...socialUser,
+                                loginTime: new Date().toISOString(),
+                                isDemo: true
+                            },
+                            rememberMe: true
+                        };
+                        
+                        localStorage.setItem('splitwise_session', JSON.stringify(sessionData));
+                        window.location.href = 'production-app.html';
+                    }, 2000);
+                }
+            } catch (error) {
+                showNotification('Social login failed: ' + error.message, 'error');
+            }
+        }
+
+        async function forgotPassword() {
+            const email = document.getElementById('email').value.trim();
             
-            // Demo: Auto-login with social account
-            setTimeout(() => {
-                const socialUser = {
-                    email: `user@${provider}.com`,
-                    name: `${provider} User`,
-                    avatar: `https://ui-avatars.com/api/?name=${provider}&background=6200EE&color=fff`
-                };
-                
-                const sessionData = {
-                    user: {
-                        id: Date.now(),
-                        ...socialUser,
-                        loginTime: new Date().toISOString()
-                    },
-                    rememberMe: true
-                };
-                
-                localStorage.setItem('splitwise_session', JSON.stringify(sessionData));
-                window.location.href = 'production-app.html';
-            }, 2000);
-        }
-
-        function forgotPassword() {
-            showNotification('Password reset link sent to your email! 📧');
-        }
-
-        // Auto-fill demo credentials
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if already logged in
-            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
-            if (session) {
-                window.location.href = 'production-app.html';
+            if (!email) {
+                showNotification('Please enter your email address first', 'error');
                 return;
             }
             
+            try {
+                if (SupabaseAuth.isAvailable()) {
+                    await SupabaseAuth.resetPassword(email);
+                    showNotification('Password reset link sent to your email! 📧');
+                } else {
+                    showNotification('Password reset link sent to your email! 📧');
+                }
+            } catch (error) {
+                showNotification('Error sending reset email: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize and check session
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Wait for Supabase to initialize
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            try {
+                // Check if already logged in
+                if (SupabaseAuth.isAvailable()) {
+                    const session = await SupabaseAuth.getSession();
+                    if (session?.user) {
+                        window.location.href = 'production-app.html';
+                        return;
+                    }
+                } else {
+                    // Fallback to local storage check
+                    const localSession = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+                    if (localSession) {
+                        window.location.href = 'production-app.html';
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.warn('Session check failed:', error);
+            }
+            
+            // Show demo credentials hint
             setTimeout(() => {
-                showNotification('Try demo@splitwise.com / demo123 for quick login! 💡');
+                if (SupabaseAuth.isAvailable()) {
+                    showNotification('✅ Production mode: Create account or use demo@splitwise.com / demo123', 'info');
+                } else {
+                    showNotification('⚠️ Demo mode: Try demo@splitwise.com / demo123 for quick login! 💡');
+                }
             }, 2000);
             
             // Demo credentials hint
@@ -613,13 +711,13 @@
             const passwordInput = document.getElementById('password');
             
             emailInput.addEventListener('focus', function() {
-                if (!this.value) {
+                if (!this.value && !SupabaseAuth.isAvailable()) {
                     showNotification('Demo: demo@splitwise.com', 'info');
                 }
             });
             
             passwordInput.addEventListener('focus', function() {
-                if (!this.value) {
+                if (!this.value && !SupabaseAuth.isAvailable()) {
                     showNotification('Demo password: demo123', 'info');
                 }
             });

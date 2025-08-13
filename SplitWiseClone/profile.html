@@ -11,6 +11,11 @@
     <meta name="apple-mobile-web-app-title" content="SplitWise">
     <meta name="theme-color" content="#6200EE">
     
+    <!-- Supabase JavaScript SDK -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <!-- Supabase Configuration -->
+    <script src="supabase-config.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -615,17 +620,41 @@
             }
         }
 
-        function loadUserProfile() {
-            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
-            
-            if (!session) {
-                window.location.href = 'login.html';
-                return;
-            }
-            
+        async function loadUserProfile() {
             try {
-                const sessionData = JSON.parse(session);
-                currentUser = sessionData.user;
+                // Try Supabase session first
+                if (SupabaseAuth.isAvailable()) {
+                    const user = await SupabaseAuth.getUser();
+                    const session = await SupabaseAuth.getSession();
+                    
+                    if (!user || !session) {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    
+                    // Get user profile from database
+                    const profile = await SupabaseDB.getUserProfile(user.id);
+                    
+                    currentUser = {
+                        id: user.id,
+                        email: user.email,
+                        name: profile?.full_name || user.user_metadata?.full_name || user.email.split('@')[0],
+                        avatar: profile?.avatar_url || user.user_metadata?.avatar_url,
+                        phone: profile?.phone,
+                        isSupabase: true
+                    };
+                } else {
+                    // Fallback to local storage
+                    const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+                    
+                    if (!session) {
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    
+                    const sessionData = JSON.parse(session);
+                    currentUser = sessionData.user;
+                }
                 
                 // Update profile display
                 document.getElementById('profileName').textContent = currentUser.name;
@@ -681,33 +710,52 @@
             }
         }
 
-        function saveProfile() {
+        async function saveProfile() {
             const updatedName = document.getElementById('fullName').value;
             const updatedPhone = document.getElementById('phone').value;
             
-            // Update current user data
-            currentUser.name = updatedName;
-            currentUser.phone = updatedPhone;
-            
-            // Update session storage
-            const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
-            const sessionData = JSON.parse(session);
-            sessionData.user = currentUser;
-            
-            if (localStorage.getItem('splitwise_session')) {
-                localStorage.setItem('splitwise_session', JSON.stringify(sessionData));
-            } else {
-                sessionStorage.setItem('splitwise_session', JSON.stringify(sessionData));
-            }
-            
-            // Update profile display
-            document.getElementById('profileName').textContent = currentUser.name;
-            
-            showNotification('Profile updated successfully! 🎉');
-            
-            // Haptic feedback
-            if (navigator.vibrate) {
-                navigator.vibrate(50);
+            try {
+                // Update current user data
+                currentUser.name = updatedName;
+                currentUser.phone = updatedPhone;
+                
+                // Try Supabase update first
+                if (SupabaseAuth.isAvailable() && currentUser.isSupabase) {
+                    // Update user metadata in Supabase Auth
+                    await SupabaseAuth.updateUser({
+                        data: { full_name: updatedName }
+                    });
+                    
+                    // Update profile in database
+                    await SupabaseDB.updateUserProfile(currentUser.id, {
+                        full_name: updatedName,
+                        phone: updatedPhone
+                    });
+                } else {
+                    // Fallback to local storage update
+                    const session = localStorage.getItem('splitwise_session') || sessionStorage.getItem('splitwise_session');
+                    const sessionData = JSON.parse(session);
+                    sessionData.user = currentUser;
+                    
+                    if (localStorage.getItem('splitwise_session')) {
+                        localStorage.setItem('splitwise_session', JSON.stringify(sessionData));
+                    } else {
+                        sessionStorage.setItem('splitwise_session', JSON.stringify(sessionData));
+                    }
+                }
+                
+                // Update profile display
+                document.getElementById('profileName').textContent = currentUser.name;
+                
+                showNotification('Profile updated successfully! 🎉');
+                
+                // Haptic feedback
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                showNotification('Error updating profile: ' + error.message, 'error');
             }
         }
 
@@ -764,16 +812,29 @@
             document.getElementById('logoutModal').classList.remove('show');
         }
 
-        function confirmLogout() {
-            // Clear session data
-            localStorage.removeItem('splitwise_session');
-            sessionStorage.removeItem('splitwise_session');
-            
-            showNotification('Signed out successfully! 👋');
-            
-            setTimeout(() => {
+        async function confirmLogout() {
+            try {
+                // Use Supabase logout if available
+                if (SupabaseAuth.isAvailable()) {
+                    await SupabaseAuth.signOut();
+                } else {
+                    // Fallback to clearing local storage
+                    localStorage.removeItem('splitwise_session');
+                    sessionStorage.removeItem('splitwise_session');
+                }
+                
+                showNotification('Signed out successfully! 👋');
+                
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 1000);
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Still clear local storage on error
+                localStorage.removeItem('splitwise_session');
+                sessionStorage.removeItem('splitwise_session');
                 window.location.href = 'login.html';
-            }, 1000);
+            }
         }
 
         function deleteAccount() {
@@ -795,8 +856,15 @@
         }
 
         // Initialize profile
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserProfile();
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Wait for Supabase to initialize
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            await loadUserProfile();
+            
+            // Show mode indicator
+            const modeText = currentUser?.isSupabase ? '✅ Production Mode' : '⚠️ Demo Mode';
+            showNotification(modeText, 'info');
             
             // Simulate loading stats
             setTimeout(() => {
