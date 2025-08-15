@@ -11,10 +11,9 @@
     <meta name="apple-mobile-web-app-title" content="Splitzee">
     <meta name="theme-color" content="#6200EE">
     
-    <!-- Supabase JavaScript SDK -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <!-- Supabase Configuration -->
-    <script src="supabase-config.js"></script>
+    <!-- Storage System -->
+    <script src="offline-storage.js?v=19"></script>
+    <script src="supabase-integration.js?v=19"></script>
     
     <style>
         * {
@@ -514,30 +513,38 @@
         }
 
         async function loadUserProfile() {
-            if (!SupabaseAuth.isAvailable()) {
-                window.location.href = 'login.html';
-                return;
-            }
-
             try {
-                const user = await SupabaseAuth.getUser();
-                const session = await SupabaseAuth.getSession();
-                
-                if (!user || !session) {
-                    window.location.href = 'login.html';
-                    return;
+                // Check authentication first
+                const authenticatedUser = checkAuthentication();
+                if (!authenticatedUser) {
+                    return; // Will redirect to login
                 }
                 
-                // Get user profile from database
-                const profile = await SupabaseDB.getUserProfile(user.id);
+                // Wait for OfflineStorage to be available
+                if (!window.OfflineStorage) {
+                    setTimeout(loadUserProfile, 100);
+                    return;
+                }
+
+                const user = window.OfflineStorage.getUser();
                 
+                if (!user) {
+                    // Update user with authenticated session data
+                    window.OfflineStorage.updateUser(authenticatedUser);
+                    const newUser = window.OfflineStorage.getUser();
+                    currentUser = newUser;
+                } else {
+                    currentUser = user;
+                }
+                
+                // Use proper user data
                 currentUser = {
-                    id: user.id,
-                    email: user.email,
-                    name: profile?.full_name || user.email.split('@')[0],
-                    subscriptionTier: profile?.subscription_tier || 'free',
-                    subscriptionStatus: profile?.subscription_status || 'active',
-                    monthlyExpenseCount: profile?.monthly_expense_count || 0
+                    id: currentUser.id,
+                    email: currentUser.email,
+                    name: currentUser.name,
+                    subscriptionTier: currentUser.isPremium ? 'premium' : 'free',
+                    subscriptionStatus: 'active',
+                    monthlyExpenseCount: 0
                 };
                 
                 // Update UI based on subscription
@@ -546,7 +553,16 @@
                 
             } catch (error) {
                 console.error('Error loading user profile:', error);
-                window.location.href = 'login.html';
+                // Don't redirect on error, just show default state
+                currentUser = {
+                    id: 'anonymous',
+                    email: 'anonymous@splitwise.local',
+                    name: 'Anonymous User',
+                    subscriptionTier: 'free',
+                    subscriptionStatus: 'active',
+                    monthlyExpenseCount: 0
+                };
+                updateSubscriptionDisplay();
             }
         }
 
@@ -568,35 +584,13 @@
 
         async function loadUsageStats() {
             try {
-                // Get expense count for this month
-                const { data: expenses } = await SupabaseDB.supabase
-                    .from('expenses')
-                    .select('id')
-                    .eq('paid_by', currentUser.id)
-                    .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+                // Get usage stats from OfflineStorage
+                const stats = window.OfflineStorage.getUsageStats();
                 
-                // Get group count
-                const { data: groups } = await SupabaseDB.supabase
-                    .from('groups')
-                    .select('id')
-                    .eq('created_by', currentUser.id);
+                document.getElementById('expenseCount').textContent = stats.expensesThisMonth || 0;
+                document.getElementById('groupCount').textContent = stats.groupsThisMonth || 0;
                 
-                document.getElementById('expenseCount').textContent = expenses?.length || 0;
-                document.getElementById('groupCount').textContent = groups?.length || 0;
-                
-                // Show limits for free users
-                if (currentUser.subscriptionTier === 'free') {
-                    const expenseCount = expenses?.length || 0;
-                    const groupCount = groups?.length || 0;
-                    
-                    if (expenseCount >= 8) {
-                        showNotification(`You've used ${expenseCount}/10 expenses this month`, 'info');
-                    }
-                    
-                    if (groupCount >= 2) {
-                        showNotification(`You've created ${groupCount}/3 groups`, 'info');
-                    }
-                }
+                // Note: Removed automatic limit warnings - these should only show when user tries to add expense/group
                 
             } catch (error) {
                 console.error('Error loading usage stats:', error);
@@ -650,9 +644,39 @@
             showNotification('Subscription management coming soon! 🔧', 'info');
         }
 
+        // Check authentication for premium page
+        function checkAuthentication() {
+            const session = localStorage.getItem('splitwise_session');
+            if (!session) {
+                console.log('No session found, redirecting to login');
+                window.location.href = 'login.html';
+                return false;
+            }
+            
+            try {
+                const sessionData = JSON.parse(session);
+                const expiresAt = new Date(sessionData.expiresAt);
+                const now = new Date();
+                
+                if (expiresAt <= now) {
+                    console.log('Session expired, redirecting to login');
+                    localStorage.removeItem('splitwise_session');
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                
+                return sessionData.user;
+            } catch (error) {
+                console.error('Invalid session data:', error);
+                localStorage.removeItem('splitwise_session');
+                window.location.href = 'login.html';
+                return false;
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', async function() {
-            // Wait for Supabase to initialize
+            // Wait for OfflineStorage to initialize
             await new Promise(resolve => setTimeout(resolve, 100));
             
             await loadUserProfile();

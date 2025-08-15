@@ -486,17 +486,28 @@ class OfflineStorage {
             const expenseMonth = expenseDate.getFullYear() + '-' + (expenseDate.getMonth() + 1);
             return expenseMonth === currentMonth;
         });
+        
+        const monthlyGroups = Object.values(data.groups || {}).filter(group => {
+            const groupDate = new Date(group.createdAt);
+            const groupMonth = groupDate.getFullYear() + '-' + (groupDate.getMonth() + 1);
+            return groupMonth === currentMonth;
+        });
 
         const totalGroups = this.getGroups().length;
         const isPremium = this.isPremium();
 
         return {
+            // For UI compatibility
+            expensesThisMonth: monthlyExpenses.length,
+            groupsThisMonth: monthlyGroups.length,
+            
+            // Legacy properties
             monthlyExpenseCount: monthlyExpenses.length,
-            expenseLimit: isPremium ? 'unlimited' : 50,
+            expenseLimit: isPremium ? 'unlimited' : 5,
             groupCount: totalGroups,
-            groupLimit: isPremium ? 'unlimited' : 10,
-            canCreateExpense: isPremium || monthlyExpenses.length < 50,
-            canCreateGroup: isPremium || totalGroups < 10
+            groupLimit: isPremium ? 'unlimited' : 3,
+            canCreateExpense: isPremium || monthlyExpenses.length < 5,
+            canCreateGroup: isPremium || totalGroups < 3
         };
     }
 

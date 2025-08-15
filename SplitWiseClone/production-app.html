@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Splitzee - Expense Splitting</title>
     
+    <!-- Prevent caching to force fresh load -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <!-- PWA Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,8 +20,8 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDE4MCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIHJ4PSI0MCIgZmlsbD0iIzYyMDBFRSIvPjx0ZXh0IHg9IjkwIiB5PSIxMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjgwIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIj7wn5KwPC90ZXh0Pjwvc3ZnPg==">
     
     <!-- Storage System -->
-    <script src="offline-storage.js?v=11"></script>
-    <script src="supabase-integration.js?v=11"></script>
+    <script src="offline-storage.js?v=19"></script>
+    <script src="supabase-integration.js?v=19"></script>
     
     <style>
         * {
@@ -27,11 +32,12 @@
         }
 
         body {
-            background-color: #f5f5f5;
+            background: #ffffff;
             padding: 16px;
             color: #333;
             padding-top: env(safe-area-inset-top, 44px);
             padding-bottom: env(safe-area-inset-bottom, 34px);
+            min-height: 100vh;
         }
 
         .container {
@@ -121,14 +127,23 @@
         }
 
         .card {
-            background: white;
-            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
             padding: 20px;
             margin-bottom: 16px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
         }
 
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
         .card:active {
             transform: scale(0.98);
         }
@@ -146,6 +161,18 @@
             color: white;
             position: relative;
             overflow: hidden;
+        }
+        
+        .balance-card:hover {
+            background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+            color: white !important;
+        }
+        
+        .balance-card:hover .balance-amount,
+        .balance-card:hover .balance-text,
+        .balance-card:hover .balance-trend,
+        .balance-card:hover .card-title {
+            color: white !important;
         }
 
         .balance-card::before {
@@ -210,6 +237,41 @@
             background: #3700B3;
             transform: scale(0.98);
         }
+        
+        .settlement-button {
+            background: #4CAF50;
+            color: white;
+            width: 100%;
+            border-radius: 12px;
+            font-size: 18px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+            margin-top: 12px;
+        }
+        
+        .settlement-button:active {
+            background: #45a049;
+            transform: scale(0.98);
+        }
+        
+        .premium-upgrade-button {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: white;
+            width: 100%;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+            margin-top: 16px;
+            display: block;
+        }
+        
+        .premium-upgrade-button:active {
+            background: linear-gradient(135deg, #FFA500, #FF8C00);
+            transform: scale(0.98);
+        }
 
         .group-item, .expense-item {
             display: flex;
@@ -218,15 +280,21 @@
             padding: 16px 0;
             border-bottom: 1px solid #f0f0f0;
             cursor: pointer;
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
             border-radius: 8px;
             margin: 0 -8px;
             padding-left: 8px;
+            color: #333;
             padding-right: 8px;
         }
 
-        .group-item:active, .expense-item:active {
+        .group-item:hover, .expense-item:hover {
             background-color: #f8f9fa;
+        }
+        
+        .group-item:active, .expense-item:active {
+            background-color: #e9ecef;
+            transform: scale(0.98);
         }
 
         .group-item:last-child, .expense-item:last-child {
@@ -380,11 +448,7 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="header-button" onclick="debugLocalStorage()" title="Debug Data">🔍</button>
-                <button class="header-button" onclick="resetAllData()" title="Reset All Data">🗑️</button>
-                <button class="header-button" onclick="cleanupFakeFriends()" title="Cleanup Friends">🧹</button>
-                <button class="header-button" onclick="openUsers()" title="Manage Users">👥</button>
-                <button class="header-button" onclick="openProfile()" title="Profile">⚙️</button>
+                <button class="header-button" onclick="openProfile()" title="Profile & Logout">⚙️</button>
             </div>
         </div>
 
@@ -418,7 +482,7 @@
                     <div id="groupProgress" style="background: linear-gradient(90deg, #4CAF50, #FF9800); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
                 </div>
             </div>
-            <button class="button" style="background: linear-gradient(135deg, #FFD700, #FFA500); color: white;" onclick="upgradeToPremium()">
+            <button class="button premium-upgrade-button" onclick="upgradeToPremium()">
                 💎 Upgrade to Premium
             </button>
         </div>
@@ -429,7 +493,7 @@
             <button class="button primary-button" onclick="addExpense()" id="addExpenseButton">
                 ➕ Add Expense
             </button>
-            <button class="button" style="background: #4CAF50; color: white;" onclick="openSettlement()">
+            <button class="button settlement-button" onclick="openSettlement()">
                 ⚖️ Settlement Calculator
             </button>
         </div>
@@ -471,6 +535,68 @@
     <button class="fab" onclick="addExpense()" title="Add Expense">+</button>
 
     <script>
+        // Global safeguard to prevent redirects to login.html
+        // Override window.location.replace
+        const originalReplace = window.location.replace;
+        window.location.replace = function(url) {
+            if (url && url.includes('login.html')) {
+                console.warn('🚫 Blocked location.replace to login.html:', url);
+                console.trace('Replace attempt stack trace:');
+                return; // Block the redirect completely
+            }
+            originalReplace.call(this, url);
+        };
+
+        // Override window.location.assign
+        const originalAssign = window.location.assign;
+        window.location.assign = function(url) {
+            if (url && url.includes('login.html')) {
+                console.warn('🚫 Blocked location.assign to login.html:', url);
+                console.trace('Assign attempt stack trace:');
+                return; // Block the redirect completely
+            }
+            originalAssign.call(this, url);
+        };
+
+        // Intercept programmatic navigation attempts
+        const originalPushState = history.pushState;
+        history.pushState = function(state, title, url) {
+            if (url && url.includes('login.html')) {
+                console.warn('🚫 Blocked pushState to login.html:', url);
+                console.trace('PushState attempt stack trace:');
+                return; // Block the redirect completely
+            }
+            originalPushState.call(this, state, title, url);
+        };
+
+        // Monitor for any unintended navigation to login.html
+        window.addEventListener('beforeunload', function(event) {
+            const currentUrl = window.location.href;
+            if (currentUrl.includes('login.html')) {
+                console.warn('🚫 Detected navigation to login.html, attempting to stay on page');
+                event.preventDefault();
+                event.returnValue = 'Prevented navigation to login.html';
+                window.location.href = 'production-app.html';
+                return 'Prevented navigation to login.html';
+            }
+        });
+
+        // Authentication is now handled in loadUserSession()
+
+        // Clean up any old problematic storage items
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.includes('login') && !key.includes('splitwise_session')) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+        } catch (error) {
+            console.warn('Error cleaning storage:', error);
+        }
+
         let currentBalance = 0;
         let currentUser = null;
 
@@ -516,24 +642,42 @@
             }
         }
 
-        async function addExpense() {
-            // Check if user can create expense
-            const stats = window.OfflineStorage.getUsageStats();
+        function addExpense() {
+            console.log('🔄 addExpense() called');
             
-            if (!currentUser.isPremium && stats.expensesThisMonth >= 5) {
-                showNotification('You\'ve reached the monthly limit of 5 expenses. Upgrade to Premium for unlimited expenses! 💎', 'warning');
-                setTimeout(() => {
-                    window.location.href = 'premium.html';
-                }, 2000);
-                return;
+            try {
+                // Check if user can create expense
+                const stats = window.OfflineStorage.getUsageStats();
+                console.log('📊 Usage stats:', stats);
+                console.log('👤 Current user:', currentUser);
+                
+                if (!currentUser.isPremium && stats.expensesThisMonth >= 5) {
+                    console.log('❌ User hit expense limit, redirecting to premium');
+                    showNotification('You\'ve reached the monthly limit of 5 expenses. Upgrade to Premium for unlimited expenses! 💎', 'warning');
+                    setTimeout(() => {
+                        console.log('🔄 Redirecting to premium.html');
+                        window.location.href = 'premium.html';
+                    }, 2000);
+                    return;
+                }
+                
+                // Clear any existing edit data and drafts before navigating to expense form
+                localStorage.removeItem('splitzee_edit_expense_id');
+                localStorage.removeItem('splitzee_draft');
+                
+                // Add a timestamp to force fresh load
+                const newUrl = 'expense-form-new.html?new=' + Date.now();
+                console.log('✅ Redirecting to expense form:', newUrl);
+                window.location.href = newUrl;
+                
+            } catch (error) {
+                console.error('❌ Error in addExpense():', error);
+                showNotification('Error opening expense form. Please try again.', 'error');
             }
-            
-            // Navigate to expense form
-            window.location.href = 'expense-form-new.html';
         }
 
         function upgradeToPremium() {
-            window.location.href = 'premium.html';
+            window.location.href = 'premium.html?v=' + Date.now();
         }
 
         function openSettlement() {
@@ -541,30 +685,319 @@
         }
 
         function openProfile() {
-            window.location.href = 'profile.html';
+            // Create a comprehensive profile menu
+            const userName = currentUser ? currentUser.name : 'User';
+            const userEmail = currentUser ? currentUser.email : '';
+            const isPremium = currentUser ? currentUser.isPremium : false;
+            
+            const options = [
+                '1️⃣ View Profile Info',
+                '2️⃣ ' + (isPremium ? 'Manage Premium' : 'Upgrade to Premium'),
+                '3️⃣ Export Data', 
+                '4️⃣ Settings',
+                '5️⃣ Logout',
+                '6️⃣ Cancel'
+            ];
+            
+            const menu = `👤 Profile: ${userName}
+📧 Email: ${userEmail}
+💎 Account: ${isPremium ? 'Premium' : 'Free'}
+
+Choose an option:
+${options.join('\n')}`;
+            
+            const choice = prompt(menu + '\n\nEnter option number (1-6):');
+            
+            switch(choice) {
+                case '1':
+                    showProfileInfo();
+                    break;
+                case '2':
+                    if (isPremium) {
+                        showNotification('Premium subscription management coming soon! 🔧', 'info');
+                    } else {
+                        window.location.href = 'premium.html';
+                    }
+                    break;
+                case '3':
+                    exportUserData();
+                    break;
+                case '4':
+                    showSettings();
+                    break;
+                case '5':
+                    if (confirm('Are you sure you want to logout?')) {
+                        logout();
+                    }
+                    break;
+                case '6':
+                default:
+                    // Cancel - do nothing
+                    break;
+            }
+        }
+
+        function showProfileInfo() {
+            const user = currentUser;
+            const stats = window.OfflineStorage.getUsageStats();
+            const friends = window.OfflineStorage.getFriends();
+            const expenses = window.OfflineStorage.getExpenses();
+            
+            // Create a modal overlay
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                border-radius: 16px;
+                padding: 32px;
+                max-width: 400px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            `;
+            
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h2 style="margin: 0; color: #333; font-size: 24px;">👤 Profile Information</h2>
+                </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">Personal Details</h3>
+                    <p style="margin: 8px 0; color: #333;"><strong>Name:</strong> ${user.name}</p>
+                    <p style="margin: 8px 0; color: #333;"><strong>Email:</strong> ${user.email}</p>
+                    <p style="margin: 8px 0; color: #333;"><strong>Account:</strong> ${user.isPremium ? '💎 Premium' : '🆓 Free'}</p>
+                    <p style="margin: 8px 0; color: #333;"><strong>Member Since:</strong> ${new Date(user.createdAt).toLocaleDateString()}</p>
+                </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">📊 Usage Statistics</h3>
+                    <p style="margin: 8px 0; color: #333;">• Expenses this month: <strong>${stats.expensesThisMonth || 0}</strong></p>
+                    <p style="margin: 8px 0; color: #333;">• Groups created: <strong>${stats.groupsThisMonth || 0}</strong></p>
+                    <p style="margin: 8px 0; color: #333;">• Friends added: <strong>${friends.length}</strong></p>
+                    <p style="margin: 8px 0; color: #333;">• Total expenses: <strong>${Object.keys(expenses).length}</strong></p>
+                </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">📋 Account Limits</h3>
+                    <p style="margin: 8px 0; color: #333;">• Monthly expense limit: <strong>${user.isPremium ? 'Unlimited' : '5'}</strong></p>
+                    <p style="margin: 8px 0; color: #333;">• Group limit: <strong>${user.isPremium ? 'Unlimited' : '3'}</strong></p>
+                    <p style="margin: 8px 0; color: #333;">• Export history: <strong>${user.isPremium ? 'All time' : '30 days'}</strong></p>
+                </div>
+                
+                <button onclick="this.closest('.profile-modal').remove()" style="
+                    background: linear-gradient(135deg, #6200EE, #3700B3);
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    width: 100%;
+                    margin-top: 16px;
+                ">Close</button>
+            `;
+            
+            modal.className = 'profile-modal';
+            modal.appendChild(content);
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+            
+            document.body.appendChild(modal);
+        }
+
+        function showSettings() {
+            // Create a modal overlay for settings
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                border-radius: 16px;
+                padding: 32px;
+                max-width: 400px;
+                width: 90%;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            `;
+            
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h2 style="margin: 0; color: #333; font-size: 24px;">⚙️ Settings</h2>
+                </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">Available Options</h3>
+                    <div style="margin: 12px 0; padding: 12px; background: #f5f5f5; border-radius: 8px;">
+                        <p style="margin: 4px 0; color: #333;">• Change display name</p>
+                        <p style="margin: 4px 0; color: #333;">• Update email address</p>
+                        <p style="margin: 4px 0; color: #333;">• Privacy settings</p>
+                        <p style="margin: 4px 0; color: #333;">• Notification preferences</p>
+                        <p style="margin: 4px 0; color: #333;">• Account management</p>
+                        <p style="margin: 4px 0; color: #333;">• Data export/import</p>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; padding: 16px; background: #fff3cd; border-radius: 8px; margin-bottom: 24px;">
+                    <p style="margin: 0; color: #856404; font-weight: 500;">🚧 Settings panel coming soon!</p>
+                    <p style="margin: 8px 0 0 0; color: #856404; font-size: 14px;">Advanced settings will be available in a future update.</p>
+                </div>
+                
+                <button onclick="this.closest('.settings-modal').remove()" style="
+                    background: linear-gradient(135deg, #6200EE, #3700B3);
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    width: 100%;
+                ">Close</button>
+            `;
+            
+            modal.className = 'settings-modal';
+            modal.appendChild(content);
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+            
+            document.body.appendChild(modal);
+        }
+
+        function exportUserData() {
+            try {
+                const userData = {
+                    user: currentUser,
+                    expenses: window.OfflineStorage.getExpenses(),
+                    friends: window.OfflineStorage.getFriends(),
+                    groups: window.OfflineStorage.getGroups(),
+                    exportDate: new Date().toISOString()
+                };
+                
+                const dataStr = JSON.stringify(userData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `splitzee-data-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                URL.revokeObjectURL(url);
+                showNotification('Data exported successfully! 📁', 'success');
+            } catch (error) {
+                console.error('Export error:', error);
+                showNotification('Failed to export data: ' + error.message, 'error');
+            }
+        }
+
+        function logout() {
+            // Clear session
+            localStorage.removeItem('splitwise_session');
+            
+            // Clear all local storage data
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('splitzee_')) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            
+            showNotification('Logged out successfully. Redirecting to login...', 'info');
+            
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, 1500);
         }
 
         function openUsers() {
-            window.location.href = 'users.html';
+            window.location.href = 'production-app.html';
         }
 
         async function loadUserSession() {
             try {
-                // Get current user from OfflineStorage
-                const user = window.OfflineStorage.getUser();
+                // Check authentication
+                const session = localStorage.getItem('splitwise_session');
                 
-                if (!user) {
-                    // No user found, initialize anonymous user
-                    window.OfflineStorage.initializeUser();
-                    const newUser = window.OfflineStorage.getUser();
-                    currentUser = newUser;
-                } else {
-                    currentUser = user;
+                if (!session) {
+                    console.log('No session found, redirecting to login');
+                    window.location.href = 'login.html';
+                    return;
                 }
+                
+                let authenticatedUser;
+                try {
+                    const sessionData = JSON.parse(session);
+                    const expiresAt = new Date(sessionData.expiresAt);
+                    const now = new Date();
+                    
+                    if (expiresAt <= now) {
+                        console.log('Session expired, redirecting to login');
+                        localStorage.removeItem('splitwise_session');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    
+                    authenticatedUser = sessionData.user;
+                } catch (error) {
+                    console.error('Invalid session data:', error);
+                    localStorage.removeItem('splitwise_session');
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                // Get or initialize user in OfflineStorage
+                let user = window.OfflineStorage.getUser();
+                
+                if (!user || !user.id) {
+                    window.OfflineStorage.updateUser(authenticatedUser);
+                    user = window.OfflineStorage.getUser();
+                }
+                
+                currentUser = user;
                 
                 // Update header with user info
                 document.getElementById('userName').textContent = currentUser.name;
-                document.getElementById('userEmail').textContent = currentUser.email || 'anonymous@splitwise.local';
+                document.getElementById('userEmail').textContent = currentUser.email;
                 
                 // Update avatar
                 const avatarElement = document.getElementById('userAvatar');
@@ -582,11 +1015,8 @@
             }
         }
 
-        async function checkAuthentication() {
-            const success = await loadUserSession();
-            if (!success) {
-                return;
-            }
+        async function initializeApp() {
+            await loadUserSession();
             
             // Load usage stats and show subscription card for free users
             await loadUsageStats();
@@ -615,6 +1045,13 @@
                     const expensesUsed = stats.expensesThisMonth || 0;
                     const groupsUsed = stats.groupsThisMonth || 0;
                     
+                    console.log('📊 Usage Stats Debug:', {
+                        stats: stats,
+                        expensesUsed: expensesUsed,
+                        groupsUsed: groupsUsed,
+                        isPremium: currentUser.isPremium
+                    });
+                    
                     document.getElementById('expenseUsage').textContent = `${expensesUsed}/5`;
                     const expensePercent = (expensesUsed / 5) * 100;
                     document.getElementById('expenseProgress').style.width = `${Math.min(expensePercent, 100)}%`;
@@ -624,13 +1061,7 @@
                     const groupPercent = (groupsUsed / 3) * 100;
                     document.getElementById('groupProgress').style.width = `${Math.min(groupPercent, 100)}%`;
                     
-                    // Show warning if approaching limits
-                    if (stats.expensesThisMonth >= 4) {
-                        showNotification(`You've used ${stats.expensesThisMonth}/5 expenses this month`, 'info');
-                    }
-                    if (stats.groupsThisMonth >= 2) {
-                        showNotification(`You've created ${stats.groupsThisMonth}/3 groups`, 'info');
-                    }
+                    // Note: Removed automatic limit warnings - these should only show when user tries to add expense/group
                 }
                 
             } catch (error) {
@@ -1140,16 +1571,13 @@
         
         // Initialize app
         document.addEventListener('DOMContentLoaded', async function() {
-            // Debug localStorage first
-            debugLocalStorage();
-            
             // Wait for OfflineStorage to initialize
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Check authentication first
-            await checkAuthentication();
+            // Initialize app
+            await initializeApp();
             
-            console.log('🚀 Splitzee Production App Loaded');
+            console.log('✅ Splitzee App Loaded');
             console.log('💰 Ready for expense splitting and management');
             console.log('📱 Optimized for iOS and mobile devices');
             console.log('🔐 Backend: OfflineStorage (Server-only)');

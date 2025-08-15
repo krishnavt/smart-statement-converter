@@ -6,8 +6,8 @@
     <title>Add Expense - Splitzee</title>
     
     <!-- Storage System -->
-    <script src="offline-storage.js?v=11"></script>
-    <script src="supabase-integration.js?v=11"></script>
+    <script src="offline-storage.js?v=19"></script>
+    <script src="supabase-integration.js?v=19"></script>
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1027,6 +1027,12 @@
         // Check if we're in edit mode
         function getEditExpenseId() {
             const urlParams = new URLSearchParams(window.location.search);
+            
+            // If URL has 'new' parameter, it's explicitly a new expense
+            if (urlParams.get('new')) {
+                return null;
+            }
+            
             return urlParams.get('edit') || localStorage.getItem('splitzee_edit_expense_id');
         }
         
@@ -1088,6 +1094,39 @@
             return true;
         }
         
+        // Initialize a completely new expense
+        function initializeNewExpense() {
+            console.log('🆕 Initializing new expense form');
+            
+            // Reset form to defaults
+            document.getElementById('totalAmount').value = '';
+            document.getElementById('description').value = '';
+            
+            // Reset category to general
+            selectCategory('general');
+            
+            // Reset to default data structure
+            currentData = {
+                amount: 0,
+                description: '',
+                category: 'general',
+                people: ['You'],
+                includedPeople: [true],
+                splitMethod: 'equal',
+                customAmounts: {}
+            };
+            
+            // Update UI elements
+            document.querySelector('.header-title').textContent = 'Add Expense';
+            document.querySelector('.draft-indicator').textContent = 'Draft';
+            document.getElementById('saveButton').innerHTML = '💾 Save Expense';
+            
+            updatePeopleList();
+            updateSplitAmounts();
+            
+            console.log('✅ New expense form initialized');
+        }
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 DOM Content Loaded');
@@ -1101,9 +1140,19 @@
                     // Check if we're editing an expense
                     const editExpenseId = getEditExpenseId();
                     if (editExpenseId) {
+                        console.log('🔄 Loading existing expense for editing:', editExpenseId);
                         loadExistingExpense(editExpenseId);
                     } else {
-                        loadDraft();
+                        console.log('✅ Starting fresh expense form');
+                        // Clear any stale data for new expenses
+                        const urlParams = new URLSearchParams(window.location.search);
+                        if (urlParams.get('new')) {
+                            localStorage.removeItem('splitzee_draft');
+                            localStorage.removeItem('splitzee_edit_expense_id');
+                            initializeNewExpense();
+                        } else {
+                            loadDraft();
+                        }
                     }
                 } else {
                     console.log('⏳ Waiting for OfflineStorage...');

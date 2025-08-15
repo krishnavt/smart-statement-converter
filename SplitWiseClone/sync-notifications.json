@@ -1158,5 +1158,195 @@
     },
     "timestamp": 1755208190575,
     "processed": false
+  },
+  {
+    "id": "notif_1755228567156_i16yt",
+    "userId": "friend_1755228553961_zvh8cmv0",
+    "title": "New Expense Added",
+    "message": "Me added: Pizza - $1115",
+    "type": "expense_added",
+    "icon": "💰",
+    "fromUser": "user_1755228542158_ju9zyhr0e",
+    "fromUserName": "Me",
+    "expenseId": "exp_1755228567141_5y1x65shs",
+    "expenseData": {
+      "id": "exp_1755228567141_5y1x65shs",
+      "amount": 1115,
+      "description": "Pizza",
+      "category": "food",
+      "splitType": "equal",
+      "splits": {
+        "You": 557.5,
+        "Krish": 557.5
+      },
+      "participants": [
+        "You",
+        "Krish"
+      ],
+      "createdBy": "user_1755228542158_ju9zyhr0e",
+      "createdAt": 1755228567141,
+      "updatedAt": 1755228567141,
+      "synced": false
+    },
+    "timestamp": 1755228567156,
+    "processed": false
+  },
+  {
+    "id": "notif_1755229001768_zinrm",
+    "userId": "friend_1755228553961_zvh8cmv0",
+    "title": "New Expense Added",
+    "message": "Me added: Grocery - $312",
+    "type": "expense_added",
+    "icon": "💰",
+    "fromUser": "user_1755228542158_ju9zyhr0e",
+    "fromUserName": "Me",
+    "expenseId": "exp_1755229001756_5yrptsx84",
+    "expenseData": {
+      "id": "exp_1755229001756_5yrptsx84",
+      "amount": 312,
+      "description": "Grocery",
+      "category": "general",
+      "splitType": "equal",
+      "splits": {
+        "You": 156,
+        "Krish": 156
+      },
+      "participants": [
+        "You",
+        "Krish"
+      ],
+      "createdBy": "user_1755228542158_ju9zyhr0e",
+      "createdAt": 1755229001756,
+      "updatedAt": 1755229001756,
+      "synced": false
+    },
+    "timestamp": 1755229001768,
+    "processed": false
+  },
+  {
+    "id": "notif_1755229072526_9g7wk",
+    "userId": "friend_1755228553961_zvh8cmv0",
+    "title": "New Expense Added",
+    "message": "Me added: Cab - $21.58",
+    "type": "expense_added",
+    "icon": "💰",
+    "fromUser": "user_1755228542158_ju9zyhr0e",
+    "fromUserName": "Me",
+    "expenseId": "exp_1755229072509_eik7e1ol5",
+    "expenseData": {
+      "id": "exp_1755229072509_eik7e1ol5",
+      "amount": 21.58,
+      "description": "Cab",
+      "category": "accommodation",
+      "splitType": "equal",
+      "splits": {
+        "You": 10.79,
+        "Krish": 10.79
+      },
+      "participants": [
+        "You",
+        "Krish"
+      ],
+      "createdBy": "user_1755228542158_ju9zyhr0e",
+      "createdAt": 1755229072509,
+      "updatedAt": 1755229072509,
+      "synced": false
+    },
+    "timestamp": 1755229072526,
+    "processed": false
+  },
+  {
+    "id": "notif_1755229085114_qvp0w",
+    "userId": "friend_1755228553961_zvh8cmv0",
+    "title": "New Expense Added",
+    "message": "Me added: telephone - $121",
+    "type": "expense_added",
+    "icon": "💰",
+    "fromUser": "user_1755228542158_ju9zyhr0e",
+    "fromUserName": "Me",
+    "expenseId": "exp_1755229085109_0riwzkolc",
+    "expenseData": {
+      "id": "exp_1755229085109_0riwzkolc",
+      "amount": 121,
+      "description": "telephone",
+      "category": "entertainment",
+      "splitType": "equal",
+      "splits": {
+        "You": 60.5,
+        "Krish": 60.5
+      },
+      "participants": [
+        "You",
+        "Krish"
+      ],
+      "createdBy": "user_1755228542158_ju9zyhr0e",
+      "createdAt": 1755229085109,
+      "updatedAt": 1755229085109,
+      "synced": false
+    },
+    "timestamp": 1755229085114,
+    "processed": false
+  },
+  {
+    "id": "notif_1755229101387_ey963",
+    "userId": "friend_1755228553961_zvh8cmv0",
+    "title": "New Expense Added",
+    "message": "Me added: Shipping - $147.24",
+    "type": "expense_added",
+    "icon": "💰",
+    "fromUser": "user_1755228542158_ju9zyhr0e",
+    "fromUserName": "Me",
+    "expenseId": "exp_1755229101377_3g8i4jfk1",
+    "expenseData": {
+      "id": "exp_1755229101377_3g8i4jfk1",
+      "amount": 147.24,
+      "description": "Shipping",
+      "category": "shopping",
+      "splitType": "equal",
+      "splits": {
+        "You": 73.62,
+        "Krish": 73.62
+      },
+      "participants": [
+        "You",
+        "Krish"
+      ],
+      "createdBy": "user_1755228542158_ju9zyhr0e",
+      "createdAt": 1755229101377,
+      "updatedAt": 1755229101377,
+      "synced": false
+    },
+    "timestamp": 1755229101387,
+    "processed": false
+  },
+  {
+    "id": "notif_1755231214255_g273i",
+    "userId": "friend_1755231205616_3tds9tc6",
+    "title": "New Expense Added",
+    "message": "Vamsi.thatikonda added: Pizza - $10",
+    "type": "expense_added",
+    "icon": "💰",
+    "fromUser": "user_1755231154849_yhidyj2wz",
+    "fromUserName": "Vamsi.thatikonda",
+    "expenseId": "exp_1755231214218_jrqlauc63",
+    "expenseData": {
+      "id": "exp_1755231214218_jrqlauc63",
+      "amount": 10,
+      "description": "Pizza",
+      "category": "food",
+      "splitType": "equal",
+      "splits": {
+        "You": 10
+      },
+      "participants": [
+        "You"
+      ],
+      "createdBy": "user_1755231149159_4awx3n484",
+      "createdAt": 1755231214218,
+      "updatedAt": 1755231214218,
+      "synced": false
+    },
+    "timestamp": 1755231214255,
+    "processed": false
   }
 ]
