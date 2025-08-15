@@ -175,8 +175,8 @@
 <body>
     <div class="loading-container">
         <div class="logo">💰</div>
-        <div class="app-name">SplitWise</div>
-        <div class="app-tagline">Smart Expense Splitting</div>
+        <div class="app-name">Splitzee</div>
+        <div class="app-tagline">Split Expenses Anywhere</div>
         
         <div class="loading-spinner"></div>
         <div class="loading-text" id="loadingText">Initializing app...</div>
@@ -249,14 +249,58 @@
                 }
             }
             
-            // No valid session, redirect to login
-            document.getElementById('loadingText').textContent = 'Redirecting to login...';
+            // No valid session, check for offline mode preference
+            const preferOffline = localStorage.getItem('splitzee_offline_mode') === 'true';
             
-            setTimeout(() => {
-                window.location.href = 'login.html';
-            }, 2000);
+            if (preferOffline) {
+                document.getElementById('loadingText').textContent = 'Loading offline mode...';
+                setTimeout(() => {
+                    window.location.href = 'app-offline.html';
+                }, 2000);
+            } else {
+                document.getElementById('loadingText').textContent = 'Choose your experience...';
+                setTimeout(() => {
+                    showModeSelection();
+                }, 2000);
+            }
             
             return false;
+        }
+
+        function showModeSelection() {
+            document.querySelector('.loading-container').innerHTML = `
+                <div class="logo">💰</div>
+                <div class="app-name">Splitzee</div>
+                <div class="app-tagline">Choose Your Experience</div>
+                
+                <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 30px; margin: 40px 0; max-width: 400px;">
+                    <div style="display: grid; gap: 16px;">
+                        <button onclick="selectMode('offline')" style="background: linear-gradient(135deg, #4CAF50, #45a049); color: white; border: none; padding: 20px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                            ✈️ Offline Mode
+                            <div style="font-size: 14px; opacity: 0.9; margin-top: 8px;">Works everywhere • No registration • Sync with codes</div>
+                        </button>
+                        
+                        <button onclick="selectMode('online')" style="background: linear-gradient(135deg, #6200EE, #3700B3); color: white; border: none; padding: 20px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                            🌐 Online Mode
+                            <div style="font-size: 14px; opacity: 0.9; margin-top: 8px;">Full features • Cloud sync • Account required</div>
+                        </button>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 20px; font-size: 14px; opacity: 0.8;">
+                        You can switch modes anytime
+                    </div>
+                </div>
+            `;
+        }
+
+        function selectMode(mode) {
+            if (mode === 'offline') {
+                localStorage.setItem('splitzee_offline_mode', 'true');
+                window.location.href = 'app-offline.html';
+            } else {
+                localStorage.setItem('splitzee_offline_mode', 'false');
+                window.location.href = 'login.html';
+            }
         }
 
         function initializeApp() {

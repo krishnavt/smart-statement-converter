@@ -3,10 +3,10 @@
 
 // Supabase Configuration
 const SUPABASE_CONFIG = {
-    // Replace with your Supabase project URL
-    url: 'https://your-project-ref.supabase.co',
-    // Replace with your Supabase anon/public key
-    anonKey: 'your-anon-key-here',
+    // Your Supabase project URL
+    url: 'https://gvuptjfmskvttcysxprw.supabase.co',
+    // Your Supabase anon/public key
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2dXB0amZtc2t2dHRjeXN4cHJ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUwNjE3MjEsImV4cCI6MjA3MDYzNzcyMX0.mYBDc2DRSMFE0VbTYl3qGAQ2B8XriSsRNbdw0xdm3Sg',
     // Optional: Custom configuration
     options: {
         auth: {
@@ -203,14 +203,28 @@ const SupabaseDB = {
     async updateUserProfile(userId, updates) {
         if (!this.isAvailable()) return null;
 
-        const { data, error } = await supabase
+        // Try to update first
+        const { data: updateData, error: updateError } = await supabase
             .from('user_profiles')
-            .upsert({ id: userId, ...updates })
+            .update(updates)
+            .eq('id', userId)
             .select()
             .single();
 
-        if (error) throw error;
-        return data;
+        if (updateError && updateError.code === 'PGRST116') {
+            // Profile doesn't exist, create it
+            const { data: insertData, error: insertError } = await supabase
+                .from('user_profiles')
+                .insert({ id: userId, ...updates })
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+            return insertData;
+        }
+
+        if (updateError) throw updateError;
+        return updateData;
     },
 
     // Expenses
@@ -291,6 +305,80 @@ const SupabaseDB = {
 
         if (error) throw error;
         return data || [];
+    },
+
+    // Premium/Subscription functions
+    async canCreateExpense(userId) {
+        if (!this.isAvailable()) return false;
+
+        const { data, error } = await supabase
+            .rpc('can_create_expense', { user_id: userId });
+
+        if (error) throw error;
+        return data;
+    },
+
+    async canCreateGroup(userId) {
+        if (!this.isAvailable()) return false;
+
+        const { data, error } = await supabase
+            .rpc('can_create_group', { user_id: userId });
+
+        if (error) throw error;
+        return data;
+    },
+
+    async incrementExpenseCount(userId) {
+        if (!this.isAvailable()) return null;
+
+        // First get current count
+        const profile = await this.getUserProfile(userId);
+        const currentCount = profile?.monthly_expense_count || 0;
+
+        // Update with incremented count
+        const { data, error } = await supabase
+            .from('user_profiles')
+            .update({ 
+                monthly_expense_count: currentCount + 1
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async getUserUsageStats(userId) {
+        if (!this.isAvailable()) return null;
+
+        // Get user profile with subscription info
+        const profile = await this.getUserProfile(userId);
+        
+        // Get current month's expense count
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        
+        const { data: expenses } = await supabase
+            .from('expenses')
+            .select('id')
+            .eq('paid_by', userId)
+            .gte('created_at', startOfMonth.toISOString());
+
+        // Get group count
+        const { data: groups } = await supabase
+            .from('groups')
+            .select('id')
+            .eq('created_by', userId);
+
+        return {
+            subscriptionTier: profile?.subscription_tier || 'free',
+            monthlyExpenseCount: expenses?.length || 0,
+            groupCount: groups?.length || 0,
+            expenseLimit: profile?.subscription_tier === 'premium' ? 'unlimited' : 50,
+            groupLimit: profile?.subscription_tier === 'premium' ? 'unlimited' : 10
+        };
     }
 };
 
