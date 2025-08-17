@@ -22,7 +22,7 @@ class SupabaseSync {
     async initializeUser() {
         // Wait for Supabase to be initialized
         if (!window.supabase || !window.initializeSupabase) {
-            console.warn('⚠️ Supabase not available, using fallback mode');
+            console.warn('⚠️ Supabase not available');
             return;
         }
         
@@ -32,14 +32,193 @@ class SupabaseSync {
         // Check if user already has a Supabase session
         const session = await window.SupabaseAuth.getSession();
         
-        if (session) {
+        if (session && session.user) {
             this.userId = session.user.id;
-            console.log('✅ User authenticated with Supabase');
+            console.log('✅ User authenticated with Supabase:', this.userId);
             await this.setupRealtimeSubscriptions();
+            await this.syncUserProfile(session.user);
         } else {
-            console.log('👤 No session found, using demo mode');
-            // For demo mode, we'll use localStorage only
+            console.log('👤 No Supabase session found, creating anonymous user');
+            await this.createSupabaseUser();
         }
+    }
+
+    async createSupabaseUser() {
+        try {
+            console.log('🔐 Starting Supabase user creation process...');
+            
+            // Get current custom user data
+            const customSession = localStorage.getItem('splitwise_session');
+            if (!customSession) {
+                throw new Error('No custom session found');
+            }
+            
+            const userData = JSON.parse(customSession).user;
+            console.log('👤 Custom user data:', userData);
+            
+            // Create a realistic email format that Supabase accepts
+            // Use a proper domain and realistic format
+            const timestamp = Date.now().toString();
+            const uniqueEmail = `splitwise.user.${timestamp}@gmail.com`;
+            const password = 'SplitWise123!' + timestamp.slice(-8); // Temporary password
+            
+            console.log('📧 Using email:', uniqueEmail);
+            console.log('🔐 Creating Supabase user for:', userData.name);
+            
+            // Skip email signup and go directly to anonymous auth for now
+            console.log('🆔 Using anonymous authentication for reliable auth...');
+            const success = await this.tryAnonymousAuth();
+            
+            if (success && this.userId) {
+                console.log('✅ Anonymous authentication successful, userId:', this.userId);
+            } else {
+                console.error('❌ All authentication methods failed');
+                throw new Error('Failed to authenticate with Supabase');
+            }
+            
+            // Only setup subscriptions if we have a userId
+            if (this.userId) {
+                await this.setupRealtimeSubscriptions();
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to create Supabase user:', error);
+            // Don't throw here - let the app continue with limited functionality
+            console.warn('⚠️ Continuing without Supabase authentication');
+        }
+    }
+
+    async tryAnonymousAuth() {
+        try {
+            console.log('🆔 Attempting anonymous authentication...');
+            const supabaseClient = window.getSupabaseClient();
+            if (!supabaseClient) {
+                console.error('❌ Supabase client not available for anonymous auth');
+                return false;
+            }
+            
+            console.log('📡 Calling signInAnonymously...');
+            const result = await supabaseClient.auth.signInAnonymously();
+            console.log('📊 Anonymous auth result:', result);
+            
+            const { data: anonData, error: anonError } = result;
+            
+            if (anonError) {
+                console.error('❌ Anonymous auth error:', anonError);
+                return false;
+            }
+            
+            if (anonData?.user?.id) {
+                this.userId = anonData.user.id;
+                console.log('✅ Anonymous user created successfully:', this.userId);
+                console.log('👤 Anonymous user data:', anonData.user);
+                return true;
+            } else {
+                console.error('❌ Anonymous auth succeeded but no user ID returned');
+                console.log('📊 Anonymous data received:', anonData);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Anonymous authentication exception:', error);
+            return false;
+        }
+    }
+
+    async syncUserProfile(supabaseUser) {
+        try {
+            const supabaseClient = window.getSupabaseClient();
+            
+            // Update or create user profile in user_profiles table
+            const { error } = await supabaseClient
+                .from('user_profiles')
+                .upsert({
+                    id: supabaseUser.id,
+                    email: supabaseUser.email,
+                    full_name: supabaseUser.user_metadata?.full_name || supabaseUser.email,
+                    avatar_url: supabaseUser.user_metadata?.avatar_url || '👤',
+                    updated_at: new Date().toISOString()
+                });
+                
+            if (error) {
+                console.warn('Warning: Could not sync user profile:', error);
+            } else {
+                console.log('✅ User profile synced');
+            }
+            
+        } catch (error) {
+            console.warn('Warning: Error syncing user profile:', error);
+        }
+    }
+
+    checkCustomAuth() {
+        console.log('🔍 Checking custom auth...');
+        try {
+            const session = localStorage.getItem('splitwise_session');
+            console.log('📱 splitwise_session found:', !!session);
+            
+            if (session) {
+                const sessionData = JSON.parse(session);
+                console.log('📱 Session data:', sessionData);
+                
+                if (sessionData.user && sessionData.user.id) {
+                    // Convert custom ID to UUID format for Supabase compatibility
+                    this.userId = this.convertToUUID(sessionData.user.id);
+                    console.log('✅ Using UUID-compatible user ID:', this.userId);
+                    console.log('   Original ID:', sessionData.user.id);
+                    return true;
+                } else {
+                    console.warn('❌ No user ID found in session data');
+                }
+            } else {
+                console.warn('❌ No splitwise_session found');
+            }
+        } catch (error) {
+            console.warn('❌ Error checking custom auth:', error);
+        }
+        console.log('❌ Custom auth check failed');
+        return false;
+    }
+
+    // Convert custom user ID to UUID format
+    convertToUUID(customId) {
+        // Create a deterministic UUID from the custom ID
+        // This ensures the same custom ID always produces the same UUID
+        const crypto = window.crypto || window.msCrypto;
+        
+        if (crypto && crypto.subtle) {
+            // Use a simple deterministic approach
+            const hash = this.simpleHash(customId);
+            return this.formatAsUUID(hash);
+        } else {
+            // Fallback: create a pseudo-UUID from the custom ID
+            return this.createPseudoUUID(customId);
+        }
+    }
+
+    // Simple hash function for deterministic UUID generation
+    simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(16).padStart(8, '0');
+    }
+
+    // Format hash as UUID
+    formatAsUUID(hash) {
+        // Pad or truncate to get 32 hex characters
+        const padded = (hash + hash + hash + hash).substring(0, 32);
+        return `${padded.substring(0, 8)}-${padded.substring(8, 12)}-${padded.substring(12, 16)}-${padded.substring(16, 20)}-${padded.substring(20, 32)}`;
+    }
+
+    // Create pseudo-UUID as fallback
+    createPseudoUUID(customId) {
+        // Use the custom ID to seed a deterministic UUID
+        const seed = customId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        const padded = (seed + '00000000000000000000000000000000').substring(0, 32);
+        return `${padded.substring(0, 8)}-${padded.substring(8, 12)}-${padded.substring(12, 16)}-${padded.substring(16, 20)}-${padded.substring(20, 32)}`;
     }
 
     async createAnonymousUser() {
@@ -544,11 +723,232 @@ class SupabaseSync {
         } catch { return []; }
     }
     
-    getFriends() {
+    // Generate a sync code for friend invitations
+    async generateFriendCode() {
+        console.log('🔗 Generating friend invitation code...');
+        console.log('🔍 Checking authentication state:');
+        console.log('   - this.userId:', this.userId);
+        console.log('   - SupabaseSync instance:', !!this);
+        
+        // Try to re-initialize if needed
+        if (!this.userId) {
+            console.log('🔄 No userId found, attempting re-initialization...');
+            await this.initializeUser();
+            
+            if (!this.userId) {
+                console.error('❌ Still no userId after re-initialization');
+                throw new Error('User not authenticated with Supabase. Please refresh the page and try again.');
+            }
+        }
+        
+        try {
+            const supabaseClient = window.getSupabaseClient();
+            if (!supabaseClient) {
+                throw new Error('Supabase client not initialized');
+            }
+            
+            // Get current user session (Supabase session)
+            const session = await window.SupabaseAuth.getSession();
+            if (!session || !session.user) {
+                throw new Error('No valid Supabase session found');
+            }
+            
+            const user = session.user;
+            const userName = user.user_metadata?.full_name || user.email;
+            const userAvatar = user.user_metadata?.avatar_url || '👤';
+            
+            console.log('👤 Generating code for user:', userName);
+            
+            // Generate sync code (calls the database function)
+            const { data: codeResult, error: codeError } = await supabaseClient
+                .rpc('generate_sync_code');
+                
+            if (codeError) {
+                throw codeError;
+            }
+            
+            const syncCode = codeResult;
+            
+            // Create sync code entry with proper Supabase auth
+            const { error: insertError } = await supabaseClient
+                .from('sync_codes')
+                .insert([{
+                    code: syncCode,
+                    user_id: this.userId,
+                    user_name: userName,
+                    user_avatar: userAvatar,
+                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+                }]);
+                
+            if (insertError) {
+                throw insertError;
+            }
+            
+            console.log('✅ Friend code generated and stored in Supabase:', syncCode);
+            return {
+                code: syncCode,
+                expiresIn: '24 hours',
+                userName: userName
+            };
+            
+        } catch (error) {
+            console.error('❌ Error generating friend code:', error);
+            throw error;
+        }
+    }
+
+    // Add friend using their sync code
+    async addFriendByCode(syncCode) {
+        console.log('🤝 Adding friend by code:', syncCode);
+        
+        if (!this.userId) {
+            throw new Error('User not authenticated');
+        }
+        
+        try {
+            const supabaseClient = window.getSupabaseClient();
+            if (!supabaseClient) {
+                throw new Error('Supabase client not initialized');
+            }
+            
+            // Find the sync code
+            const { data: syncData, error: syncError } = await supabaseClient
+                .from('sync_codes')
+                .select('*')
+                .eq('code', syncCode.toUpperCase())
+                .eq('used', false)
+                .gt('expires_at', new Date().toISOString())
+                .single();
+                
+            if (syncError || !syncData) {
+                throw new Error('Invalid or expired friend code');
+            }
+            
+            if (syncData.user_id === this.userId) {
+                throw new Error('Cannot add yourself as a friend');
+            }
+            
+            // Use the database function to create the friendship
+            const { data: result, error: friendError } = await supabaseClient
+                .rpc('add_friend_relationship', {
+                    requester_id: this.userId,
+                    friend_id: syncData.user_id,
+                    sync_code: syncCode.toUpperCase()
+                });
+                
+            if (friendError || !result) {
+                throw friendError || new Error('Failed to create friendship');
+            }
+            
+            console.log('✅ Friend relationship created with:', syncData.user_name);
+            
+            return {
+                friendId: syncData.user_id,
+                friendName: syncData.user_name,
+                friendAvatar: syncData.user_avatar,
+                code: syncCode
+            };
+            
+        } catch (error) {
+            console.error('❌ Error adding friend by code:', error);
+            throw error;
+        }
+    }
+
+    // Legacy addFriend method - now redirects to proper system
+    async addFriend(friendData) {
+        console.log('📢 Use generateFriendCode() and addFriendByCode() for proper user relationships');
+        throw new Error('Please use the new friend invitation system: generateFriendCode() and addFriendByCode()');
+    }
+
+    async loadFriendsFromSupabase() {
+        if (!window.getSupabaseClient || !this.userId) {
+            console.log('📱 Supabase not available or user not authenticated, using local friends only');
+            return this.getFriendsLocal();
+        }
+        
+        try {
+            const supabaseClient = window.getSupabaseClient();
+            if (!supabaseClient) {
+                console.warn('Supabase client not initialized');
+                return this.getFriendsLocal();
+            }
+            
+            // Load real friend relationships from Supabase
+            const { data: relationships, error } = await supabaseClient
+                .from('friend_relationships')
+                .select(`
+                    friend_id,
+                    created_at,
+                    status
+                `)
+                .eq('user_id', this.userId)
+                .eq('status', 'active');
+                
+            if (error) {
+                console.warn('Failed to load friend relationships from Supabase:', error);
+                return this.getFriendsLocal();
+            }
+            
+            if (!relationships || relationships.length === 0) {
+                console.log('📭 No friends found in Supabase');
+                return this.getFriendsLocal();
+            }
+            
+            // Get friend user profiles
+            const friendIds = relationships.map(rel => rel.friend_id);
+            const { data: friendProfiles, error: profileError } = await supabaseClient
+                .from('user_profiles')
+                .select('id, full_name, email, avatar_url')
+                .in('id', friendIds);
+                
+            if (profileError) {
+                console.warn('Failed to load friend profiles:', profileError);
+                return this.getFriendsLocal();
+            }
+            
+            // Convert to friend format
+            const friends = friendProfiles.map(profile => ({
+                id: profile.id,
+                name: profile.full_name || profile.email,
+                email: profile.email,
+                avatar: profile.avatar_url || '👤',
+                added: relationships.find(rel => rel.friend_id === profile.id)?.created_at,
+                userId: this.userId,
+                isRealUser: true
+            }));
+            
+            console.log(`✅ Loaded ${friends.length} real user friends from Supabase`);
+            
+            // Also maintain local friends for backward compatibility
+            const localData = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            if (!localData.friends) localData.friends = {};
+            
+            // Add real friends to local storage with special marking
+            friends.forEach(friend => {
+                localData.friends[friend.id] = friend;
+            });
+            
+            localStorage.setItem('splitzee_data', JSON.stringify(localData));
+            
+            return friends;
+        } catch (error) {
+            console.error('Error loading friends from Supabase:', error);
+            return this.getFriendsLocal();
+        }
+    }
+
+    getFriendsLocal() {
         try {
             const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
             return Object.values(data.friends || {});
         } catch { return []; }
+    }
+
+    getFriends() {
+        // This method returns local friends synchronously
+        // Use loadFriendsFromSupabase() for initial load with cloud sync
+        return this.getFriendsLocal();
     }
     
     getGroups() {

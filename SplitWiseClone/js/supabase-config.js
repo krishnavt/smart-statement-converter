@@ -1,6 +1,8 @@
 // Supabase Configuration for SplitWise Production Backend
 // This file contains the Supabase client setup and authentication utilities
 
+console.log('🚀 SUPABASE CONFIG LOADING...');
+
 // Supabase Configuration
 const SUPABASE_CONFIG = {
     // Your Supabase project URL
@@ -28,6 +30,10 @@ let supabase = null;
 
 // Initialize Supabase with error handling
 function initializeSupabase() {
+    console.log('🚀 Starting Supabase initialization...');
+    console.log('   - window defined:', typeof window !== 'undefined');
+    console.log('   - window.supabase available:', !!window.supabase);
+    
     try {
         if (typeof window !== 'undefined' && window.supabase) {
             supabase = window.supabase.createClient(
@@ -36,9 +42,13 @@ function initializeSupabase() {
                 SUPABASE_CONFIG.options
             );
             console.log('✅ Supabase initialized successfully');
+            console.log('   - Client created:', !!supabase);
             return true;
         } else {
             console.warn('⚠️ Supabase SDK not loaded, falling back to demo mode');
+            console.log('   - Checking for CDN script...');
+            const scripts = document.querySelectorAll('script[src*="supabase"]');
+            console.log('   - Supabase scripts found:', scripts.length);
             return false;
         }
     } catch (error) {
@@ -382,12 +392,38 @@ const SupabaseDB = {
     }
 };
 
+// Test if Supabase is available immediately
+console.log('🧪 Initial Supabase check:', !!window.supabase);
+
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM Content Loaded - checking Supabase again:', !!window.supabase);
     initializeSupabase();
+    
+    // If Supabase still not available, try again after a delay
+    if (!window.supabase) {
+        console.log('⏱️ Supabase not ready, retrying in 1 second...');
+        setTimeout(() => {
+            console.log('🔄 Retry - Supabase available:', !!window.supabase);
+            if (window.supabase) {
+                initializeSupabase();
+            }
+        }, 1000);
+    }
 });
 
 // Export for use in other files
 window.SupabaseAuth = SupabaseAuth;
 window.SupabaseDB = SupabaseDB;
 window.initializeSupabase = initializeSupabase;
+window.getSupabaseClient = () => {
+    console.log('📱 getSupabaseClient called, returning:', !!supabase);
+    return supabase;
+};
+window.SUPABASE_CONFIG = SUPABASE_CONFIG;
+
+console.log('📦 Supabase config exports set on window object');
+console.log('   - SupabaseAuth:', !!window.SupabaseAuth);
+console.log('   - SupabaseDB:', !!window.SupabaseDB);
+console.log('   - initializeSupabase:', !!window.initializeSupabase);
+console.log('   - getSupabaseClient:', !!window.getSupabaseClient);
