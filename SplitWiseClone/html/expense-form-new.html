@@ -6,8 +6,10 @@
     <title>Add Expense - Splitzee</title>
     
     <!-- Storage System -->
-    <script src="offline-storage.js?v=19"></script>
-    <script src="supabase-integration.js?v=19"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase-config.js?v=19"></script>
+    <script src="../js/offline-storage.js?v=19"></script>
+    <script src="../js/supabase-integration.js?v=19"></script>
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -672,8 +674,8 @@
             currentData.people = ['You'];
             currentData.includedPeople = [true];
             
-            // Get friends from OfflineStorage
-            const friends = window.OfflineStorage.getFriends();
+            // Get friends from SupabaseSync
+            const friends = window.SupabaseSync.getFriends();
             
             // Add friends based on selection
             if (numberOfPeople === 1) {
@@ -812,6 +814,114 @@
             }
         }
 
+        function updatePeopleList() {
+            const peopleListContainer = document.getElementById('peopleList');
+            if (!peopleListContainer) return;
+            
+            let html = '';
+            
+            for (let i = 0; i < currentData.people.length; i++) {
+                const person = currentData.people[i];
+                const isIncluded = currentData.includedPeople[i];
+                const isYou = person === 'You';
+                
+                html += `
+                    <div class="person-item ${isIncluded ? 'included' : ''}" data-index="${i}">
+                        <div class="person-info">
+                            <div class="person-checkbox">
+                                <input type="checkbox" 
+                                       ${isIncluded ? 'checked' : ''} 
+                                       ${isYou ? 'disabled' : ''}
+                                       onchange="togglePersonInclusion(${i})">
+                            </div>
+                            <div class="person-name">${person}</div>
+                        </div>
+                        <div class="person-amount">
+                            ${currentData.splitMethod === 'custom' ? 
+                                `<input type="number" 
+                                        class="custom-amount-input" 
+                                        value="${(currentData.customAmounts && currentData.customAmounts[i]) || 0}" 
+                                        onchange="updateCustomAmount(${i}, this.value)"
+                                        step="0.01"
+                                        ${!isIncluded ? 'disabled' : ''}>` 
+                                : 
+                                `$${isIncluded ? ((currentData.amount || 0) / currentData.includedPeople.filter(Boolean).length).toFixed(2) : '0.00'}`
+                            }
+                        </div>
+                        ${!isYou ? `<button class="remove-person-btn" onclick="removePerson(${i})">×</button>` : ''}
+                    </div>
+                `;
+            }
+            
+            peopleListContainer.innerHTML = html;
+        }
+
+        function togglePersonInclusion(index) {
+            if (index === 0) return; // Can't exclude "You"
+            currentData.includedPeople[index] = !currentData.includedPeople[index];
+            updatePeopleList();
+            updateSplitAmounts();
+            autoSave();
+        }
+
+        function removePerson(index) {
+            if (index === 0) return; // Can't remove "You"
+            currentData.people.splice(index, 1);
+            currentData.includedPeople.splice(index, 1);
+            if (currentData.customAmounts) {
+                currentData.customAmounts.splice(index, 1);
+            }
+            updatePeopleList();
+            updateSplitAmounts();
+            autoSave();
+        }
+
+        function updateCustomAmount(index, value) {
+            if (!currentData.customAmounts) {
+                currentData.customAmounts = new Array(currentData.people.length).fill(0);
+            }
+            currentData.customAmounts[index] = parseFloat(value) || 0;
+            updateSplitAmounts();
+            autoSave();
+        }
+
+        function updateSplitAmounts() {
+            const totalAmount = currentData.amount || 0;
+            const includedCount = currentData.includedPeople.filter(Boolean).length;
+            
+            if (currentData.splitMethod === 'equal') {
+                // Equal split - each included person pays the same amount
+                const amountPerPerson = includedCount > 0 ? totalAmount / includedCount : 0;
+                
+                // Update the display
+                updatePeopleList();
+                
+                // Update validation
+                validateAmounts();
+            } else if (currentData.splitMethod === 'custom') {
+                // Custom amounts - validate they add up
+                if (!currentData.customAmounts) {
+                    currentData.customAmounts = new Array(currentData.people.length).fill(0);
+                }
+                
+                // Update the display
+                updatePeopleList();
+                
+                // Update validation
+                validateAmounts();
+            }
+        }
+
+        function autoSave() {
+            // Save current data as draft
+            try {
+                localStorage.setItem('splitzee_draft', JSON.stringify(currentData));
+                console.log('💾 Draft auto-saved');
+            } catch (error) {
+                console.error('Failed to auto-save draft:', error);
+            }
+        }
+
         function handleAddPerson(event) {
             if (event.key === 'Enter') {
                 const input = event.target;
@@ -848,14 +958,14 @@
             
             try {
                 // Get current user
-                const user = window.OfflineStorage.getUser();
+                const user = window.SupabaseSync.getUser();
                 if (!user) {
                     throw new Error('User not initialized');
                 }
                 
                 // Check if user can create expense (freemium)
                 if (!user.isPremium) {
-                    const stats = window.OfflineStorage.getUsageStats();
+                    const stats = window.SupabaseSync.getUsageStats();
                     if (stats.expensesThisMonth >= 5) {
                         showValidationMessage('You\'ve reached the monthly limit of 5 expenses. Upgrade to Premium for unlimited expenses! 💎', 'warning');
                         setTimeout(() => { window.location.href = 'premium.html'; }, 2000);
@@ -895,10 +1005,10 @@
                 // Check if we're editing an existing expense
                 if (currentData.id) {
                     // Update existing expense
-                    await window.OfflineStorage.updateExpense(currentData.id, expense);
+                    await window.SupabaseSync.updateExpense(currentData.id, expense);
                 } else {
                     // Create new expense
-                    await window.OfflineStorage.createExpense(expense);
+                    await window.SupabaseSync.createExpense(expense);
                 }
                 
                 // Clear draft and edit data
@@ -950,13 +1060,13 @@
         function initializeFriendsList() {
             console.log('🔄 Initializing friends list...');
             
-            if (!window.OfflineStorage) {
-                console.log('❌ OfflineStorage not available yet');
+            if (!window.SupabaseSync) {
+                console.log('❌ SupabaseSync not available yet');
                 setTimeout(initializeFriendsList, 200); // Retry in 200ms
                 return;
             }
             
-            const friends = window.OfflineStorage.getFriends();
+            const friends = window.SupabaseSync.getFriends();
             console.log('👥 Found friends:', friends.length, friends);
             
             // Generate quick split buttons based on friends
@@ -1039,7 +1149,7 @@
         function loadExistingExpense(expenseId) {
             console.log('📝 Loading expense for editing:', expenseId);
             
-            const expenses = window.OfflineStorage.getExpenses();
+            const expenses = window.SupabaseSync.getExpenses();
             const expense = expenses.find(e => e.id === expenseId);
             
             if (!expense) {
@@ -1131,10 +1241,42 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 DOM Content Loaded');
             
-            // Wait for OfflineStorage to be ready with progressive retry
-            function waitForOfflineStorage() {
-                if (window.OfflineStorage) {
-                    console.log('✅ OfflineStorage available, initializing...');
+            // Initialize friends list and ensure test friends exist
+            function initializeFriendsList() {
+                try {
+                    const friends = window.SupabaseSync.getFriends();
+                    if (friends.length === 0) {
+                        // Add some test friends for demonstration
+                        const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+                        if (!data.friends) data.friends = {};
+                        
+                        const testFriends = [
+                            { id: 'friend_1', name: 'Alice', avatar: '👩' },
+                            { id: 'friend_2', name: 'Bob', avatar: '👨' },
+                            { id: 'friend_3', name: 'Charlie', avatar: '🧑' }
+                        ];
+                        
+                        testFriends.forEach(friend => {
+                            data.friends[friend.id] = {
+                                ...friend,
+                                added: Date.now()
+                            };
+                        });
+                        
+                        localStorage.setItem('splitzee_data', JSON.stringify(data));
+                        console.log('✅ Added test friends: Alice, Bob, Charlie');
+                    } else {
+                        console.log(`✅ Found ${friends.length} existing friends`);
+                    }
+                } catch (error) {
+                    console.error('Error initializing friends list:', error);
+                }
+            }
+            
+            // Wait for SupabaseSync to be ready with progressive retry
+            function waitForSupabaseSync() {
+                if (window.SupabaseSync) {
+                    console.log('✅ SupabaseSync available, initializing...');
                     initializeFriendsList();
                     
                     // Check if we're editing an expense
@@ -1155,12 +1297,12 @@
                         }
                     }
                 } else {
-                    console.log('⏳ Waiting for OfflineStorage...');
-                    setTimeout(waitForOfflineStorage, 100);
+                    console.log('⏳ Waiting for SupabaseSync...');
+                    setTimeout(waitForSupabaseSync, 100);
                 }
             }
             
-            waitForOfflineStorage();
+            waitForSupabaseSync();
             
             // Auto-save every 2 seconds
             setInterval(autoSave, 2000);

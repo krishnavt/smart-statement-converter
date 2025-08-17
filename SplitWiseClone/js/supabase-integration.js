@@ -5,29 +5,40 @@
 
 class SupabaseSync {
     constructor() {
-        // Disable Supabase for now since anonymous auth is disabled
-        console.log('🔄 Supabase disabled - running in offline-only mode');
+        // Enable Supabase for online-only mode
+        console.log('🌐 Supabase enabled - running in online-only mode');
         
         this.userId = null;
         this.isOnline = navigator.onLine;
         this.syncQueue = [];
         this.subscriptions = new Map();
-        this.supabaseDisabled = true;
+        this.supabaseDisabled = false;
         
         this.setupEventListeners();
-        // Skip Supabase initialization
+        // Initialize Supabase for online mode
+        this.initializeUser();
     }
 
     async initializeUser() {
+        // Wait for Supabase to be initialized
+        if (!window.supabase || !window.initializeSupabase) {
+            console.warn('⚠️ Supabase not available, using fallback mode');
+            return;
+        }
+        
+        // Initialize the client if not already done
+        window.initializeSupabase();
+        
         // Check if user already has a Supabase session
-        const { data: { session } } = await this.supabase.auth.getSession();
+        const session = await window.SupabaseAuth.getSession();
         
         if (session) {
             this.userId = session.user.id;
+            console.log('✅ User authenticated with Supabase');
             await this.setupRealtimeSubscriptions();
         } else {
-            // Create anonymous user or use existing offline user
-            await this.createAnonymousUser();
+            console.log('👤 No session found, using demo mode');
+            // For demo mode, we'll use localStorage only
         }
     }
 
@@ -517,26 +528,85 @@ class SupabaseSync {
         }
         this.subscriptions.clear();
     }
+    
+    // Data access methods for compatibility
+    getUser() {
+        try {
+            const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            return data.user || null;
+        } catch { return null; }
+    }
+    
+    getExpenses() {
+        try {
+            const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            return Object.values(data.expenses || {});
+        } catch { return []; }
+    }
+    
+    getFriends() {
+        try {
+            const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            return Object.values(data.friends || {});
+        } catch { return []; }
+    }
+    
+    getGroups() {
+        try {
+            const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            return Object.values(data.groups || {});
+        } catch { return []; }
+    }
+    
+    getUsageStats() {
+        try {
+            const expenses = this.getExpenses();
+            const groups = this.getGroups();
+            const now = new Date();
+            const thisMonth = now.getMonth();
+            const thisYear = now.getFullYear();
+            
+            const expensesThisMonth = expenses.filter(expense => {
+                const expenseDate = new Date(expense.createdAt);
+                return expenseDate.getMonth() === thisMonth && expenseDate.getFullYear() === thisYear;
+            }).length;
+            
+            const groupsThisMonth = groups.filter(group => {
+                const groupDate = new Date(group.createdAt || Date.now());
+                return groupDate.getMonth() === thisMonth && groupDate.getFullYear() === thisYear;
+            }).length;
+            
+            return { expensesThisMonth, groupsThisMonth };
+        } catch { return { expensesThisMonth: 0, groupsThisMonth: 0 }; }
+    }
+    
+    updateUser(user) {
+        try {
+            const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            data.user = user;
+            localStorage.setItem('splitzee_data', JSON.stringify(data));
+        } catch (error) {
+            console.error('Error updating user:', error);
+        }
+    }
+    
+    async deleteExpense(expenseId) {
+        try {
+            const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
+            if (data.expenses && data.expenses[expenseId]) {
+                delete data.expenses[expenseId];
+                localStorage.setItem('splitzee_data', JSON.stringify(data));
+                return { success: true };
+            }
+            return { success: false, error: 'Expense not found' };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
 }
 
-// Initialize Supabase integration (offline-only mode)
-try {
-    window.SupabaseSync = new SupabaseSync();
-} catch (error) {
-    console.log('🔄 Supabase unavailable - running in offline-only mode');
-    // Create a minimal SupabaseSync that always uses offline storage
-    window.SupabaseSync = {
-        supabaseDisabled: true,
-        async generateSyncCode() { return window.OfflineStorage.generateSyncCode(); },
-        async addFriendByCode(code) { return window.OfflineStorage.addFriendByCode(code); },
-        async createExpense(expense) { return window.OfflineStorage.createExpense(expense); },
-        async updateExpense(expenseId, updates) { return window.OfflineStorage.updateExpense(expenseId, updates); },
-        async getNotifications(unreadOnly) { return window.OfflineStorage.getNotifications(unreadOnly); },
-        async markNotificationRead(id) { return window.OfflineStorage.markNotificationRead(id); },
-        async markAllNotificationsRead() { return window.OfflineStorage.markAllNotificationsRead(); },
-        getSyncStatus() { return { isOnline: navigator.onLine, hasSupabaseConnection: false, mode: 'offline-only', queueLength: 0 }; }
-    };
-}
+// Initialize Supabase integration (online-only mode)
+window.SupabaseSync = new SupabaseSync();
 
 // Enhanced OfflineDB with Supabase integration
 window.OfflineDB = {
