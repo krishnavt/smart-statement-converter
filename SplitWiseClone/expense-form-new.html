@@ -7,9 +7,9 @@
     
     <!-- Storage System -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../js/supabase-config.js?v=19"></script>
-    <script src="../js/offline-storage.js?v=19"></script>
-    <script src="../js/supabase-integration.js?v=19"></script>
+    <script src="js/supabase-config.js?v=19"></script>
+    <script src="js/offline-storage.js?v=19"></script>
+    <script src="js/supabase-integration.js?v=19"></script>
     
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1057,65 +1057,6 @@
             }
         }
 
-        function initializeFriendsList() {
-            console.log('🔄 Initializing friends list...');
-            
-            if (!window.SupabaseSync) {
-                console.log('❌ SupabaseSync not available yet');
-                setTimeout(initializeFriendsList, 200); // Retry in 200ms
-                return;
-            }
-            
-            const friends = window.SupabaseSync.getFriends();
-            console.log('👥 Found friends:', friends.length, friends);
-            
-            // Generate quick split buttons based on friends
-            const quickSplitContainer = document.getElementById('quickSplitButtons');
-            if (!quickSplitContainer) {
-                console.log('❌ Quick split container not found');
-                return;
-            }
-            
-            let buttonsHtml = '';
-            
-            if (friends.length === 0) {
-                // No friends - only show "Just Me" option
-                buttonsHtml = '<button class="quick-button" onclick="quickSplit(1)">Just Me</button>';
-                
-                // Initialize with just you
-                currentData.people = ['You'];
-                currentData.includedPeople = [true];
-            } else {
-                // Show friend-specific options
-                buttonsHtml += '<button class="quick-button" onclick="quickSplit(1)">Just Me</button>';
-                
-                // Add specific friend buttons
-                for (let i = 0; i < Math.min(friends.length, 3); i++) {
-                    const friendName = friends[i].name;
-                    buttonsHtml += `<button class="quick-button" onclick="quickSplitWithFriend('${friendName}')">Me + ${friendName}</button>`;
-                }
-                
-                // Add a button for all friends if you have multiple
-                if (friends.length > 1) {
-                    buttonsHtml += `<button class="quick-button" onclick="quickSplit(${friends.length + 1})">Me + All Friends</button>`;
-                }
-                
-                // Initialize with all friends by default
-                currentData.people = ['You'];
-                currentData.includedPeople = [true];
-                
-                friends.forEach(friend => {
-                    currentData.people.push(friend.name);
-                    currentData.includedPeople.push(true);
-                });
-                
-                console.log('✅ Initialized with friends:', currentData.people);
-            }
-            
-            quickSplitContainer.innerHTML = buttonsHtml;
-            updatePeopleList();
-            updateSplitAmounts();
-        }
         
         // New function for friend-specific splitting
         function quickSplitWithFriend(friendName) {
@@ -1244,7 +1185,8 @@
             // Initialize friends list and ensure test friends exist
             function initializeFriendsList() {
                 try {
-                    const friends = window.SupabaseSync.getFriends();
+                    // First ensure test friends exist if none are present
+                    let friends = window.SupabaseSync.getFriends();
                     if (friends.length === 0) {
                         // Add some test friends for demonstration
                         const data = JSON.parse(localStorage.getItem('splitzee_data') || '{}');
@@ -1265,9 +1207,44 @@
                         
                         localStorage.setItem('splitzee_data', JSON.stringify(data));
                         console.log('✅ Added test friends: Alice, Bob, Charlie');
+                        
+                        // Refresh friends list after adding
+                        friends = window.SupabaseSync.getFriends();
                     } else {
                         console.log(`✅ Found ${friends.length} existing friends`);
                     }
+                    
+                    // Now generate quick split buttons based on friends
+                    const quickSplitContainer = document.getElementById('quickSplitButtons');
+                    if (!quickSplitContainer) {
+                        console.log('❌ Quick split container not found');
+                        return;
+                    }
+                    
+                    let buttonsHtml = '';
+                    
+                    if (friends.length === 0) {
+                        // No friends - only show "Just Me" option
+                        buttonsHtml = '<button class="quick-button" onclick="quickSplit(1)">Just Me</button>';
+                    } else {
+                        // Show friend-specific options
+                        buttonsHtml += '<button class="quick-button" onclick="quickSplit(1)">Just Me</button>';
+                        
+                        // Add specific friend buttons
+                        for (let i = 0; i < Math.min(friends.length, 3); i++) {
+                            const friendName = friends[i].name;
+                            buttonsHtml += `<button class="quick-button" onclick="quickSplitWithFriend('${friendName}')">Me + ${friendName}</button>`;
+                        }
+                        
+                        // Add a button for all friends if you have multiple
+                        if (friends.length > 1) {
+                            buttonsHtml += `<button class="quick-button" onclick="quickSplit(${friends.length + 1})">Me + All Friends</button>`;
+                        }
+                    }
+                    
+                    quickSplitContainer.innerHTML = buttonsHtml;
+                    console.log('✅ Generated quick split buttons for', friends.length, 'friends');
+                    
                 } catch (error) {
                     console.error('Error initializing friends list:', error);
                 }
