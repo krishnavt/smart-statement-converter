@@ -194,6 +194,8 @@
             margin-bottom: 8px;
             position: relative;
             z-index: 1;
+            color: white !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .balance-text {
@@ -202,6 +204,18 @@
             margin-bottom: 20px;
             position: relative;
             z-index: 1;
+            color: white !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .balance-trend {
+            font-size: 14px;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+            color: white !important;
+            opacity: 0.9;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
         .button {
@@ -458,7 +472,7 @@
             <div class="card-title">Your Balance</div>
             <div class="balance-amount" id="balanceAmount">$0.00</div>
             <div class="balance-text" id="balanceText">All settled up</div>
-            <div class="balance-trend">↗️ +$25.50 this week</div>
+            <div class="balance-trend" id="balanceTrend">📊 Calculating trend...</div>
             <button class="button" onclick="settleUp()">Settle Up</button>
         </div>
 
@@ -633,13 +647,82 @@
             
             if (currentBalance > 0) {
                 textElement.textContent = `You are owed $${currentBalance.toFixed(2)}`;
-                balanceElement.style.color = '#4CAF50';
+                balanceElement.style.color = 'white';
+                // Update card background to positive color
+                balanceElement.closest('.balance-card').style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
             } else if (currentBalance < 0) {
                 textElement.textContent = `You owe $${Math.abs(currentBalance).toFixed(2)}`;
-                balanceElement.style.color = '#F44336';
+                balanceElement.style.color = 'white';
+                // Update card background to negative color
+                balanceElement.closest('.balance-card').style.background = 'linear-gradient(135deg, #F44336, #d32f2f)';
             } else {
                 textElement.textContent = 'You are all settled up!';
-                balanceElement.style.color = '#4CAF50';
+                balanceElement.style.color = 'white';
+                // Update card background to neutral color
+                balanceElement.closest('.balance-card').style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+            }
+            
+            // Update weekly trend dynamically
+            updateWeeklyTrend();
+        }
+
+        function updateWeeklyTrend() {
+            try {
+                const expenses = window.SupabaseSync.getExpenses();
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                
+                // Calculate this week's activity
+                let weeklyChange = 0;
+                let weeklyTransactions = 0;
+                
+                Object.values(expenses).forEach(expense => {
+                    const expenseDate = new Date(expense.date || expense.created);
+                    if (expenseDate >= weekAgo) {
+                        weeklyTransactions++;
+                        // Calculate your share of the expense
+                        const splits = expense.splits || {};
+                        const yourShare = splits[currentUser?.name] || splits['You'] || 0;
+                        weeklyChange += yourShare || 0;
+                    }
+                });
+                
+                // Update the trend display
+                const trendElement = document.querySelector('.balance-trend');
+                if (trendElement) {
+                    if (weeklyTransactions === 0) {
+                        trendElement.innerHTML = '📊 No activity this week';
+                        trendElement.style.color = '#666';
+                    } else {
+                        const changeText = Math.abs(weeklyChange).toFixed(2);
+                        let icon, sign, color;
+                        
+                        if (weeklyChange > 0) {
+                            icon = '↗️';
+                            sign = '+';
+                            color = '#4CAF50';
+                        } else if (weeklyChange < 0) {
+                            icon = '↘️'; 
+                            sign = '-';
+                            color = '#F44336';
+                        } else {
+                            icon = '➡️';
+                            sign = '';
+                            color = '#666';
+                        }
+                        
+                        trendElement.innerHTML = `${icon} ${sign}$${changeText} this week (${weeklyTransactions} transactions)`;
+                        trendElement.style.color = color;
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating weekly trend:', error);
+                // Fallback to neutral message
+                const trendElement = document.querySelector('.balance-trend');
+                if (trendElement) {
+                    trendElement.innerHTML = '📊 Calculating trend...';
+                    trendElement.style.color = '#666';
+                }
             }
         }
 
@@ -686,56 +769,8 @@
         }
 
         function openProfile() {
-            // Create a comprehensive profile menu
-            const userName = currentUser ? currentUser.name : 'User';
-            const userEmail = currentUser ? currentUser.email : '';
-            const isPremium = currentUser ? currentUser.isPremium : false;
-            
-            const options = [
-                '1️⃣ View Profile Info',
-                '2️⃣ ' + (isPremium ? 'Manage Premium' : 'Upgrade to Premium'),
-                '3️⃣ Export Data', 
-                '4️⃣ Settings',
-                '5️⃣ Logout',
-                '6️⃣ Cancel'
-            ];
-            
-            const menu = `👤 Profile: ${userName}
-📧 Email: ${userEmail}
-💎 Account: ${isPremium ? 'Premium' : 'Free'}
-
-Choose an option:
-${options.join('\n')}`;
-            
-            const choice = prompt(menu + '\n\nEnter option number (1-6):');
-            
-            switch(choice) {
-                case '1':
-                    showProfileInfo();
-                    break;
-                case '2':
-                    if (isPremium) {
-                        showNotification('Premium subscription management coming soon! 🔧', 'info');
-                    } else {
-                        window.location.href = 'premium.html';
-                    }
-                    break;
-                case '3':
-                    exportUserData();
-                    break;
-                case '4':
-                    showSettings();
-                    break;
-                case '5':
-                    if (confirm('Are you sure you want to logout?')) {
-                        logout();
-                    }
-                    break;
-                case '6':
-                default:
-                    // Cancel - do nothing
-                    break;
-            }
+            // Directly show the enhanced profile modal
+            showProfileInfo();
         }
 
         function showProfileInfo() {
@@ -772,32 +807,85 @@ ${options.join('\n')}`;
                 box-shadow: 0 20px 40px rgba(0,0,0,0.3);
             `;
             
+            // Calculate advanced statistics
+            const totalExpenseAmount = Object.values(expenses).reduce((sum, exp) => sum + (exp.amount || 0), 0);
+            const avgExpenseAmount = Object.keys(expenses).length > 0 ? totalExpenseAmount / Object.keys(expenses).length : 0;
+            const recentExpenses = Object.values(expenses).filter(exp => {
+                const expDate = new Date(exp.date || exp.created);
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                return expDate >= weekAgo;
+            }).length;
+            
             content.innerHTML = `
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; color: #333; font-size: 24px;">👤 Profile Information</h2>
+                    <div style="width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #6200EE, #3700B3); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; color: white;">
+                        ${user.avatar || '👤'}
+                    </div>
+                    <h2 style="margin: 0; color: #333; font-size: 24px;">${user.name}</h2>
+                    <div style="margin-top: 8px; padding: 4px 12px; background: ${user.isPremium ? 'linear-gradient(135deg, #FFD700, #FFA500)' : '#f0f0f0'}; border-radius: 16px; display: inline-block; font-size: 12px; font-weight: 600; color: ${user.isPremium ? '#333' : '#666'};">
+                        ${user.isPremium ? '💎 PREMIUM MEMBER' : '🆓 FREE ACCOUNT'}
+                    </div>
                 </div>
                 
                 <div style="margin-bottom: 24px;">
-                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">Personal Details</h3>
-                    <p style="margin: 8px 0; color: #333;"><strong>Name:</strong> ${user.name}</p>
-                    <p style="margin: 8px 0; color: #333;"><strong>Email:</strong> ${user.email}</p>
-                    <p style="margin: 8px 0; color: #333;"><strong>Account:</strong> ${user.isPremium ? '💎 Premium' : '🆓 Free'}</p>
-                    <p style="margin: 8px 0; color: #333;"><strong>Member Since:</strong> ${new Date(user.createdAt).toLocaleDateString()}</p>
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">👤 Personal Details</h3>
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                        <div style="padding: 12px 16px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Email</span>
+                            <span style="font-weight: 500; color: #333;">${user.email}</span>
+                        </div>
+                        <div style="padding: 12px 16px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Member Since</span>
+                            <span style="font-weight: 500; color: #333;">${new Date(user.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div style="padding: 12px 16px; display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Account Type</span>
+                            <span style="font-weight: 500; color: #333;">${user.isPremium ? 'Premium' : 'Free'}</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="margin-bottom: 24px;">
-                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">📊 Usage Statistics</h3>
-                    <p style="margin: 8px 0; color: #333;">• Expenses this month: <strong>${stats.expensesThisMonth || 0}</strong></p>
-                    <p style="margin: 8px 0; color: #333;">• Groups created: <strong>${stats.groupsThisMonth || 0}</strong></p>
-                    <p style="margin: 8px 0; color: #333;">• Friends added: <strong>${friends.length}</strong></p>
-                    <p style="margin: 8px 0; color: #333;">• Total expenses: <strong>${Object.keys(expenses).length}</strong></p>
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">📊 Activity Overview</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        <div style="background: #f8f9ff; border: 1px solid #e8ebff; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #6200EE;">${Object.keys(expenses).length}</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 4px;">Total Expenses</div>
+                        </div>
+                        <div style="background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #16a34a;">${friends.length}</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 4px;">Friends Added</div>
+                        </div>
+                        <div style="background: #fefce8; border: 1px solid #fef3c7; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #d97706;">$${totalExpenseAmount.toFixed(0)}</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 4px;">Total Amount</div>
+                        </div>
+                        <div style="background: #f3e8ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #9333ea;">${recentExpenses}</div>
+                            <div style="font-size: 12px; color: #666; margin-top: 4px;">This Week</div>
+                        </div>
+                    </div>
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; background: #fafafa;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="color: #666;">Average Expense:</span>
+                            <span style="font-weight: 500; color: #333;">$${avgExpenseAmount.toFixed(2)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #666;">Account Status:</span>
+                            <span style="font-weight: 500; color: ${user.isPremium ? '#16a34a' : '#d97706'};">${user.isPremium ? 'Premium Active' : 'Free Tier'}</span>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="margin-bottom: 24px;">
-                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">📋 Account Limits</h3>
-                    <p style="margin: 8px 0; color: #333;">• Monthly expense limit: <strong>${user.isPremium ? 'Unlimited' : '5'}</strong></p>
-                    <p style="margin: 8px 0; color: #333;">• Group limit: <strong>${user.isPremium ? 'Unlimited' : '3'}</strong></p>
-                    <p style="margin: 8px 0; color: #333;">• Export history: <strong>${user.isPremium ? 'All time' : '30 days'}</strong></p>
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">⚡ Quick Actions</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button onclick="exportUserData(); this.closest('.profile-modal').remove();" style="padding: 10px; border: 1px solid #6200EE; background: white; color: #6200EE; border-radius: 6px; cursor: pointer; font-size: 14px;">📁 Export Data</button>
+                        <button onclick="showSettings(); this.closest('.profile-modal').remove();" style="padding: 10px; border: 1px solid #6200EE; background: white; color: #6200EE; border-radius: 6px; cursor: pointer; font-size: 14px;">⚙️ Settings</button>
+                        <button onclick="window.open('premium.html', '_blank')" style="padding: 10px; border: 1px solid #d97706; background: white; color: #d97706; border-radius: 6px; cursor: pointer; font-size: 14px;">💎 Upgrade</button>
+                        <button onclick="confirmLogout(); this.closest('.profile-modal').remove();" style="padding: 10px; border: 1px solid #dc2626; background: white; color: #dc2626; border-radius: 6px; cursor: pointer; font-size: 14px;">🚪 Logout</button>
+                    </div>
                 </div>
                 
                 <button onclick="this.closest('.profile-modal').remove()" style="
@@ -810,8 +898,7 @@ ${options.join('\n')}`;
                     font-weight: 600;
                     cursor: pointer;
                     width: 100%;
-                    margin-top: 16px;
-                ">Close</button>
+                ">Close Profile</button>
             `;
             
             modal.className = 'profile-modal';
@@ -849,44 +936,110 @@ ${options.join('\n')}`;
                 background: white;
                 border-radius: 16px;
                 padding: 32px;
-                max-width: 400px;
+                max-width: 450px;
                 width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
                 box-shadow: 0 20px 40px rgba(0,0,0,0.3);
             `;
             
             content.innerHTML = `
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <h2 style="margin: 0; color: #333; font-size: 24px;">⚙️ Settings</h2>
+                    <h2 style="margin: 0; color: #333; font-size: 24px;">⚙️ Settings & Preferences</h2>
                 </div>
                 
                 <div style="margin-bottom: 24px;">
-                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">Available Options</h3>
-                    <div style="margin: 12px 0; padding: 12px; background: #f5f5f5; border-radius: 8px;">
-                        <p style="margin: 4px 0; color: #333;">• Change display name</p>
-                        <p style="margin: 4px 0; color: #333;">• Update email address</p>
-                        <p style="margin: 4px 0; color: #333;">• Privacy settings</p>
-                        <p style="margin: 4px 0; color: #333;">• Notification preferences</p>
-                        <p style="margin: 4px 0; color: #333;">• Account management</p>
-                        <p style="margin: 4px 0; color: #333;">• Data export/import</p>
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">👤 Account Settings</h3>
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                        <div class="setting-item" onclick="changeDisplayName()" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #e0e0e0; transition: background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <div style="font-weight: 500; color: #333;">Display Name</div>
+                                    <div style="font-size: 14px; color: #666;">Currently: ${currentUser.name}</div>
+                                </div>
+                                <div style="color: #6200EE;">✏️</div>
+                            </div>
+                        </div>
+                        <div class="setting-item" onclick="exportUserData()" style="padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #e0e0e0; transition: background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <div style="font-weight: 500; color: #333;">Export Data</div>
+                                    <div style="font-size: 14px; color: #666;">Download all your data as JSON</div>
+                                </div>
+                                <div style="color: #6200EE;">📁</div>
+                            </div>
+                        </div>
+                        <div class="setting-item" onclick="clearAllData()" style="padding: 12px 16px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <div style="font-weight: 500; color: #d32f2f;">Clear All Data</div>
+                                    <div style="font-size: 14px; color: #666;">Delete all expenses and friends</div>
+                                </div>
+                                <div style="color: #d32f2f;">🗑️</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div style="text-align: center; padding: 16px; background: #fff3cd; border-radius: 8px; margin-bottom: 24px;">
-                    <p style="margin: 0; color: #856404; font-weight: 500;">🚧 Settings panel coming soon!</p>
-                    <p style="margin: 8px 0 0 0; color: #856404; font-size: 14px;">Advanced settings will be available in a future update.</p>
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">🔔 Notifications</h3>
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                        <div class="setting-item" style="padding: 12px 16px; border-bottom: 1px solid #e0e0e0;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <div style="font-weight: 500; color: #333;">Push Notifications</div>
+                                    <div style="font-size: 14px; color: #666;">Get notified of new expenses</div>
+                                </div>
+                                <label style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                                    <input type="checkbox" id="pushNotifications" checked style="opacity: 0; width: 0; height: 0;">
+                                    <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #6200EE; transition: .4s; border-radius: 24px; before: position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="setting-item" style="padding: 12px 16px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <div style="font-weight: 500; color: #333;">Email Summaries</div>
+                                    <div style="font-size: 14px; color: #666;">Weekly expense summaries</div>
+                                </div>
+                                <label style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                                    <input type="checkbox" id="emailSummaries" style="opacity: 0; width: 0; height: 0;">
+                                    <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px;"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <button onclick="this.closest('.settings-modal').remove()" style="
-                    background: linear-gradient(135deg, #6200EE, #3700B3);
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    width: 100%;
-                ">Close</button>
+                <div style="margin-bottom: 24px;">
+                    <h3 style="color: #6200EE; margin-bottom: 12px; font-size: 18px;">🎨 Appearance</h3>
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px;">
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-weight: 500; color: #333; margin-bottom: 8px;">Theme</div>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="setTheme('light')" style="flex: 1; padding: 8px 12px; border: 2px solid #6200EE; background: white; color: #6200EE; border-radius: 6px; cursor: pointer;">☀️ Light</button>
+                                <button onclick="setTheme('dark')" style="flex: 1; padding: 8px 12px; border: 2px solid #e0e0e0; background: white; color: #666; border-radius: 6px; cursor: pointer;">🌙 Dark</button>
+                                <button onclick="setTheme('auto')" style="flex: 1; padding: 8px 12px; border: 2px solid #e0e0e0; background: white; color: #666; border-radius: 6px; cursor: pointer;">🔄 Auto</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <button onclick="this.closest('.settings-modal').remove()" style="
+                        background: linear-gradient(135deg, #6200EE, #3700B3);
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        width: 100%;
+                        margin-bottom: 12px;
+                    ">Save & Close</button>
+                    <div style="font-size: 12px; color: #666;">Settings are automatically saved</div>
+                </div>
             `;
             
             modal.className = 'settings-modal';
@@ -929,25 +1082,198 @@ ${options.join('\n')}`;
             }
         }
 
+        function changeDisplayName() {
+            const newName = prompt('Enter new display name:', currentUser.name);
+            if (newName && newName.trim() && newName !== currentUser.name) {
+                currentUser.name = newName.trim();
+                localStorage.setItem('splitwise_session', JSON.stringify(currentUser));
+                showNotification('Display name updated successfully! ✨', 'success');
+                
+                // Update UI
+                document.getElementById('userNameHeader').textContent = currentUser.name;
+                document.getElementById('userAvatar').title = currentUser.name;
+                
+                // Close settings modal and refresh
+                document.querySelector('.settings-modal')?.remove();
+            }
+        }
+
+        function clearAllData() {
+            const confirmed = confirm('⚠️ This will delete ALL your data including expenses, friends, and groups. This action cannot be undone. Are you sure?');
+            if (confirmed) {
+                const doubleConfirm = confirm('This is your final warning. ALL DATA WILL BE LOST. Continue?');
+                if (doubleConfirm) {
+                    // Clear all local storage data
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && (key.startsWith('splitzee_') || key.startsWith('splitwise_'))) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    keysToRemove.forEach(key => localStorage.removeItem(key));
+                    
+                    // Reset to initial state
+                    window.SupabaseSync.clearAllData();
+                    
+                    showNotification('All data has been cleared. Refreshing app...', 'info');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
+            }
+        }
+
+        function setTheme(theme) {
+            localStorage.setItem('splitzee_theme', theme);
+            showNotification(`Theme set to ${theme} mode! 🎨`, 'success');
+            
+            // Update theme buttons visual state
+            document.querySelectorAll('[onclick^="setTheme"]').forEach(btn => {
+                if (btn.onclick.toString().includes(`'${theme}'`)) {
+                    btn.style.borderColor = '#6200EE';
+                    btn.style.color = '#6200EE';
+                } else {
+                    btn.style.borderColor = '#e0e0e0';
+                    btn.style.color = '#666';
+                }
+            });
+            
+            // Apply theme immediately (basic implementation)
+            if (theme === 'dark') {
+                document.body.style.background = '#1a1a1a';
+                document.body.style.color = '#fff';
+            } else {
+                document.body.style.background = '#ffffff';
+                document.body.style.color = '#333';
+            }
+        }
+
         function logout() {
-            // Clear session
+            // Show logout confirmation with better UX
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                border-radius: 16px;
+                padding: 32px;
+                max-width: 350px;
+                width: 90%;
+                text-align: center;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            `;
+            
+            content.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 16px;">👋</div>
+                <h3 style="margin: 0 0 16px 0; color: #333; font-size: 20px;">Sign Out</h3>
+                <p style="margin: 0 0 24px 0; color: #666; line-height: 1.4;">Are you sure you want to sign out? Your data will be saved and you can sign back in anytime.</p>
+                
+                <div style="display: flex; gap: 12px;">
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        flex: 1;
+                        padding: 12px 16px;
+                        border: 2px solid #e0e0e0;
+                        background: white;
+                        color: #666;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                    ">Cancel</button>
+                    <button onclick="confirmLogout()" style="
+                        flex: 1;
+                        padding: 12px 16px;
+                        border: none;
+                        background: linear-gradient(135deg, #dc2626, #b91c1c);
+                        color: white;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: 600;
+                        cursor: pointer;
+                    ">Sign Out</button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
+        function confirmLogout() {
+            // Close any modals
+            document.querySelectorAll('[style*="position: fixed"]').forEach(modal => modal.remove());
+            
+            // Show logout progress
+            const progressModal = document.createElement('div');
+            progressModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10001;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            
+            progressModal.innerHTML = `
+                <div style="background: white; border-radius: 16px; padding: 40px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+                    <div style="font-size: 40px; margin-bottom: 16px;">🚪</div>
+                    <h3 style="margin: 0 0 12px 0; color: #333;">Signing out...</h3>
+                    <p style="margin: 0; color: #666; font-size: 14px;">Saving your session data</p>
+                    <div style="width: 200px; height: 4px; background: #f0f0f0; border-radius: 2px; margin: 20px auto; overflow: hidden;">
+                        <div style="width: 0%; height: 100%; background: linear-gradient(135deg, #6200EE, #3700B3); border-radius: 2px; transition: width 2s ease;" id="logoutProgress"></div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(progressModal);
+            
+            // Animate progress bar
+            setTimeout(() => {
+                document.getElementById('logoutProgress').style.width = '100%';
+            }, 100);
+            
+            // Clear session data
             localStorage.removeItem('splitwise_session');
             
-            // Clear all local storage data
+            // Clear all local storage data (but keep theme preferences)
             const keysToRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith('splitzee_')) {
+                if (key && key.startsWith('splitzee_') && key !== 'splitzee_theme') {
                     keysToRemove.push(key);
                 }
             }
             keysToRemove.forEach(key => localStorage.removeItem(key));
             
-            showNotification('Logged out successfully. Redirecting to login...', 'info');
-            
+            // Redirect after animation
             setTimeout(() => {
                 window.location.href = 'login.html';
-            }, 1500);
+            }, 2500);
         }
 
         function openUsers() {
@@ -1143,6 +1469,9 @@ ${options.join('\n')}`;
                 // Update balance card
                 currentBalance = userShare; // Your balance is what you're owed/owe
                 updateBalance(currentBalance);
+                
+                // Also ensure weekly trend is updated on initial load
+                updateWeeklyTrend();
                 
                 // Update summary card totals using specific IDs
                 const totalExpenseDiv = document.getElementById('totalExpensesAmount');
