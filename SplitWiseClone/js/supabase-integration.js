@@ -388,6 +388,29 @@ class SupabaseSync {
         }
     }
 
+    // Get current user's name for notifications
+    getUserName() {
+        try {
+            // Try stored credentials first
+            const storedCreds = localStorage.getItem('supabase_temp_creds');
+            if (storedCreds) {
+                const creds = JSON.parse(storedCreds);
+                return creds.email.split('@')[0] || 'Unknown User';
+            }
+            
+            // Try local session
+            const customSession = localStorage.getItem('splitwise_session');
+            if (customSession) {
+                const userData = JSON.parse(customSession).user;
+                return userData.name || 'Unknown User';
+            }
+            
+            return 'Unknown User';
+        } catch {
+            return 'Unknown User';
+        }
+    }
+
     async createAnonymousUser() {
         // Get existing offline user ID
         const offlineUserId = localStorage.getItem('splitzee_user_id');
@@ -473,10 +496,71 @@ class SupabaseSync {
             )
             .subscribe();
 
+        // Subscribe to friend relationships (for real-time friend additions)
+        // Listen for cases where current user is either user_id OR friend_id
+        console.log('🔔 Setting up friend relationship subscriptions for user:', this.userId);
+        
+        const friendSubscription1 = supabaseClient
+            .channel('friend_relationships_user')
+            .on('postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'friend_relationships',
+                    filter: `user_id=eq.${this.userId}`
+                },
+                (payload) => {
+                    console.log('🔔 Friend subscription 1 triggered (user_id):', payload);
+                    this.handleFriendAdded(payload.new);
+                }
+            )
+            .subscribe((status) => {
+                console.log('🔔 Friend subscription 1 status:', status);
+            });
+
+        const friendSubscription2 = supabaseClient
+            .channel('friend_relationships_friend')
+            .on('postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'friend_relationships',
+                    filter: `friend_id=eq.${this.userId}`
+                },
+                (payload) => {
+                    console.log('🔔 Friend subscription 2 triggered (friend_id):', payload);
+                    this.handleFriendAdded(payload.new);
+                }
+            )
+            .subscribe((status) => {
+                console.log('🔔 Friend subscription 2 status:', status);
+            });
+
+        // Subscribe to expenses (for real-time expense updates)
+        const expenseSubscription = supabaseClient
+            .channel('expenses')
+            .on('postgres_changes',
+                {
+                    event: '*', // INSERT, UPDATE, DELETE
+                    schema: 'public',
+                    table: 'expenses'
+                },
+                (payload) => this.handleExpenseChange(payload)
+            )
+            .subscribe((status) => {
+                console.log('🔔 Expense subscription status:', status);
+            });
+
         this.subscriptions.set('notifications', notificationSubscription);
         this.subscriptions.set('activity', activitySubscription);
+        this.subscriptions.set('friends_user', friendSubscription1);
+        this.subscriptions.set('friends_friend', friendSubscription2);
+        this.subscriptions.set('expenses', expenseSubscription);
 
         console.log('🔔 Real-time subscriptions active');
+        
+        // Also set up a fallback polling mechanism in case realtime doesn't work
+        this.setupFallbackPolling();
     }
 
     handleNotification(notification) {
@@ -488,6 +572,28 @@ class SupabaseSync {
             type: notification.type,
             data: notification.data
         });
+
+        // Handle specific notification types
+        if (notification.type === 'friend_added') {
+            console.log('🔄 Friend added notification received, refreshing friends list...');
+            
+            // Refresh friends list after a short delay
+            setTimeout(() => {
+                this.loadFriendsFromSupabase().then(friends => {
+                    console.log('✅ Friends list refreshed via notification:', friends.length, 'friends');
+                    
+                    // Trigger UI updates
+                    if (window.loadGroupMembers) {
+                        window.loadGroupMembers();
+                    }
+                    if (window.updateFriendsList) {
+                        window.updateFriendsList(friends);
+                    }
+                }).catch(err => {
+                    console.warn('⚠️ Could not refresh friends list from notification:', err);
+                });
+            }, 1000);
+        }
 
         // Update notification badge
         this.updateNotificationBadge();
@@ -503,6 +609,79 @@ class SupabaseSync {
         if (window.updateActivityFeed) {
             window.updateActivityFeed();
         }
+    }
+
+    handleFriendAdded(friendRelationship) {
+        console.log('🔄 Friend relationship added via real-time subscription:', friendRelationship);
+        
+        // Refresh friends list immediately
+        this.loadFriendsFromSupabase().then(friends => {
+            console.log('✅ Friends list refreshed via friend subscription:', friends.length, 'friends');
+            
+            // Trigger UI updates
+            if (window.loadGroupMembers) {
+                window.loadGroupMembers();
+            }
+            if (window.updateFriendsList) {
+                window.updateFriendsList(friends);
+            }
+        }).catch(err => {
+            console.warn('⚠️ Could not refresh friends list from friend subscription:', err);
+        });
+    }
+
+    setupFallbackPolling() {
+        // Store initial friends count for comparison
+        let lastFriendsCount = this.getFriends().length;
+        
+        // Poll every 5 seconds to check for friend changes
+        setInterval(async () => {
+            try {
+                const currentFriends = await this.loadFriendsFromSupabase();
+                
+                if (currentFriends.length !== lastFriendsCount) {
+                    console.log('🔄 Friends list changed detected via polling:', lastFriendsCount, '->', currentFriends.length);
+                    lastFriendsCount = currentFriends.length;
+                    
+                    // Trigger UI updates
+                    if (window.loadGroupMembers) {
+                        window.loadGroupMembers();
+                    }
+                    if (window.updateFriendsList) {
+                        window.updateFriendsList(currentFriends);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ Fallback polling error:', error);
+            }
+        }, 5000); // Poll every 5 seconds
+        
+        console.log('🔄 Fallback friend polling enabled (5s interval)');
+    }
+
+    handleExpenseChange(payload) {
+        console.log('🔄 Expense change detected:', payload.eventType, payload);
+        
+        // Refresh expenses from Supabase
+        this.loadExpensesFromSupabase().then(expenses => {
+            console.log('✅ Expenses refreshed via real-time:', expenses.length, 'expenses');
+            
+            // Update local storage with synced expenses
+            window.OfflineStorage.syncExpensesFromSupabase(expenses);
+            
+            // Trigger UI updates
+            if (window.loadExpenses) {
+                window.loadExpenses();
+            }
+            if (window.updateExpensesList) {
+                window.updateExpensesList();
+            }
+            if (window.updateBalances) {
+                window.updateBalances();
+            }
+        }).catch(err => {
+            console.warn('⚠️ Could not refresh expenses from real-time update:', err);
+        });
     }
 
     showBrowserNotification(notification) {
@@ -1076,6 +1255,37 @@ class SupabaseSync {
                 console.warn('⚠️ Could not mark sync code as used:', updateError);
             }
             
+            // Create notifications for both users about the new friendship
+            const notifications = [
+                {
+                    user_id: this.userId,
+                    type: 'friend_added',
+                    title: 'New Friend Added',
+                    message: `You're now connected with ${syncData.user_name}`,
+                    icon: '👥',
+                    from_user_id: syncData.user_id,
+                    from_user_name: syncData.user_name
+                },
+                {
+                    user_id: syncData.user_id,
+                    type: 'friend_added', 
+                    title: 'New Friend Added',
+                    message: `Someone added you as a friend using your invite code`,
+                    icon: '👥',
+                    from_user_id: this.userId,
+                    from_user_name: this.getUserName() || 'Someone'
+                }
+            ];
+            
+            // Insert notifications
+            const { error: notificationError } = await supabaseClient
+                .from('notifications')
+                .insert(notifications);
+                
+            if (notificationError) {
+                console.warn('⚠️ Could not create friend notifications:', notificationError);
+            }
+            
             console.log('✅ Supabase friend relationship created with:', syncData.user_name);
             
             // Refresh the friends list to show the new friend
@@ -1206,6 +1416,34 @@ class SupabaseSync {
         // This method returns local friends synchronously
         // Use loadFriendsFromSupabase() for initial load with cloud sync
         return this.getFriendsLocal();
+    }
+
+    async loadExpensesFromSupabase() {
+        if (!window.getSupabaseClient || !this.userId) {
+            console.log('📱 Supabase not available or user not authenticated, using local expenses only');
+            return this.getExpenses();
+        }
+
+        try {
+            const supabaseClient = window.getSupabaseClient();
+            
+            // Load expenses where user is creator, payer, or participant
+            const { data: expenses, error } = await supabaseClient
+                .from('expenses')
+                .select('*')
+                .or(`created_by.eq.${this.userId},paid_by.eq.${this.userId},participants.cs.{${this.userId}}`);
+                
+            if (error) {
+                console.warn('Failed to load expenses from Supabase:', error);
+                return this.getExpenses();
+            }
+            
+            console.log(`✅ Loaded ${expenses.length} expenses from Supabase`);
+            return expenses || [];
+        } catch (error) {
+            console.error('Error loading expenses from Supabase:', error);
+            return this.getExpenses();
+        }
     }
     
     getGroups() {
