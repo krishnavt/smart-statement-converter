@@ -1,6 +1,19 @@
 -- Minimal Schema for Real-Time Notifications
 -- Run this if you get column errors with the main schema
 
+-- 0. User Profiles Table (required for authentication)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+    email VARCHAR(255),
+    full_name VARCHAR(255),
+    display_name VARCHAR(255),
+    avatar_url TEXT,
+    subscription_tier VARCHAR(20) DEFAULT 'free',
+    monthly_expense_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 1. Sync Codes Table (for anonymous friend linking)
 CREATE TABLE IF NOT EXISTS sync_codes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -90,6 +103,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_i
 CREATE INDEX IF NOT EXISTS idx_activity_feed_user_created ON activity_feed(user_id, created_at DESC);
 
 -- Enable RLS
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE friend_relationships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
@@ -97,6 +111,16 @@ ALTER TABLE activity_feed ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Basic RLS policies
+
+-- User profiles policies
+DROP POLICY IF EXISTS "Users can manage their own profile" ON user_profiles;
+CREATE POLICY "Users can manage their own profile" ON user_profiles
+    FOR ALL USING (id = auth.uid());
+
+DROP POLICY IF EXISTS "Users can view public profiles" ON user_profiles;
+CREATE POLICY "Users can view public profiles" ON user_profiles
+    FOR SELECT USING (true);
+
 DROP POLICY IF EXISTS "Users can manage their own sync codes" ON sync_codes;
 CREATE POLICY "Users can manage their own sync codes" ON sync_codes
     FOR ALL USING (user_id = auth.uid());
