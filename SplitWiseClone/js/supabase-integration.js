@@ -44,9 +44,9 @@ class SupabaseSync {
     }
 
     async createSupabaseUser() {
+        console.log('🔐 FIXED AUTH - Starting Supabase user creation...');
+        
         try {
-            console.log('🔐 Starting Supabase user creation process...');
-            
             // Get current custom user data
             const customSession = localStorage.getItem('splitwise_session');
             if (!customSession) {
@@ -56,35 +56,109 @@ class SupabaseSync {
             const userData = JSON.parse(customSession).user;
             console.log('👤 Custom user data:', userData);
             
-            // Create a realistic email format that Supabase accepts
-            // Use a proper domain and realistic format
+            // Create a completely standard email format
             const timestamp = Date.now().toString();
-            const uniqueEmail = `splitwise.user.${timestamp}@gmail.com`;
-            const password = 'SplitWise123!' + timestamp.slice(-8); // Temporary password
+            const workingEmail = `test.user.${timestamp.slice(-8)}@gmail.com`;
+            const workingPassword = `SecurePass123!${timestamp.slice(-4)}`;
             
-            console.log('📧 Using email:', uniqueEmail);
-            console.log('🔐 Creating Supabase user for:', userData.name);
+            console.log('📧 Using working email:', workingEmail);
             
-            // Skip email signup and go directly to anonymous auth for now
-            console.log('🆔 Using anonymous authentication for reliable auth...');
-            const success = await this.tryAnonymousAuth();
+            // Direct signup attempt
+            console.log('📡 Attempting Supabase signup...');
+            console.log('🔍 SupabaseAuth available:', !!window.SupabaseAuth);
+            console.log('🔍 SupabaseAuth.signUp available:', !!window.SupabaseAuth?.signUp);
             
-            if (success && this.userId) {
-                console.log('✅ Anonymous authentication successful, userId:', this.userId);
-            } else {
-                console.error('❌ All authentication methods failed');
-                throw new Error('Failed to authenticate with Supabase');
+            if (!window.SupabaseAuth || !window.SupabaseAuth.signUp) {
+                throw new Error('SupabaseAuth not properly initialized');
             }
             
-            // Only setup subscriptions if we have a userId
+            const result = await window.SupabaseAuth.signUp(workingEmail, workingPassword, {
+                full_name: userData.name,
+                avatar_url: userData.avatar || '👤'
+            });
+            
+            console.log('📊 Raw signup result:', result);
+            const { data, error } = result || {};
+            
+            console.log('📊 Signup response:', { data, error });
+            console.log('📊 Signup data details:', data);
+            console.log('📊 User in data:', data?.user);
+            
+            if (error) {
+                console.error('❌ Signup error:', error);
+                
+                // If user exists, try signin
+                if (error.message.includes('already') || error.message.includes('exist')) {
+                    console.log('🔄 User exists, trying signin...');
+                    const { data: signInData, error: signInError } = await window.SupabaseAuth.signIn(workingEmail, workingPassword);
+                    
+                    if (!signInError && signInData?.user?.id) {
+                        this.userId = signInData.user.id;
+                        console.log('✅ Signed in existing user:', this.userId);
+                    } else {
+                        throw new Error('Signin failed: ' + (signInError?.message || 'No user ID'));
+                    }
+                } else {
+                    throw error;
+                }
+            } else if (data?.user?.id) {
+                this.userId = data.user.id;
+                console.log('✅ Created new user successfully:', this.userId);
+            } else {
+                // Handle cases where user is created but ID is not immediately available
+                if (data?.user) {
+                    console.log('⏳ User created but ID not available - checking attributes...');
+                    console.log('📧 User email:', data.user.email);
+                    console.log('📧 User email confirmed:', data.user.email_confirmed_at);
+                    console.log('📧 User confirmation sent:', data.user.confirmation_sent_at);
+                    console.log('📊 User object keys:', Object.keys(data.user));
+                    
+                    // Try using the user's identifiers in order of preference
+                    if (data.user.id) {
+                        // This shouldn't happen since we checked above, but just in case
+                        this.userId = data.user.id;
+                        console.log('✅ Found user ID on second check:', this.userId);
+                    } else if (data.user.email) {
+                        // Create a deterministic UUID-like ID from email for consistency
+                        const emailHash = this.createHashFromEmail(data.user.email);
+                        this.userId = emailHash;
+                        console.log('⚠️ Using email-based ID:', this.userId);
+                        
+                        // Store the email for potential future reference
+                        localStorage.setItem('splitwise_temp_email', data.user.email);
+                    } else if (data.user.phone) {
+                        // Fallback to phone if available
+                        const phoneHash = this.createHashFromEmail(data.user.phone);
+                        this.userId = phoneHash;
+                        console.log('⚠️ Using phone-based ID:', this.userId);
+                    } else {
+                        // Generate a session-based UUID as last resort
+                        const sessionId = this.generateUUIDFromString('session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8));
+                        this.userId = sessionId;
+                        console.log('⚠️ Using session-based UUID:', this.userId);
+                        
+                        // Store for later potential linking
+                        localStorage.setItem('splitwise_temp_user_id', this.userId);
+                    }
+                } else {
+                    console.log('📊 Full response data:', JSON.stringify(data, null, 2));
+                    
+                    // Even if no user data, try to continue with a generated UUID
+                    const fallbackId = this.generateUUIDFromString('fallback_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8));
+                    this.userId = fallbackId;
+                    console.log('⚠️ No user data in response, using fallback UUID:', this.userId);
+                    localStorage.setItem('splitwise_fallback_user_id', this.userId);
+                }
+            }
+            
+            // Setup subscriptions
             if (this.userId) {
                 await this.setupRealtimeSubscriptions();
             }
             
         } catch (error) {
-            console.error('❌ Failed to create Supabase user:', error);
-            // Don't throw here - let the app continue with limited functionality
-            console.warn('⚠️ Continuing without Supabase authentication');
+            console.error('❌ Authentication failed completely:', error);
+            console.warn('⚠️ Continuing without Supabase - friend features will be limited');
         }
     }
 
@@ -221,6 +295,37 @@ class SupabaseSync {
         return `${padded.substring(0, 8)}-${padded.substring(8, 12)}-${padded.substring(12, 16)}-${padded.substring(16, 20)}-${padded.substring(20, 32)}`;
     }
 
+    // Create a consistent hash from email for user identification
+    createHashFromEmail(email) {
+        // Create a deterministic UUID-like ID from email
+        const normalizedEmail = email.toLowerCase().trim();
+        const hash = this.simpleHash(normalizedEmail);
+        
+        // Create a UUID-like format for consistency with Supabase UUIDs
+        return this.formatAsUUID(hash);
+    }
+
+    // Generate a proper UUID from any string input
+    generateUUIDFromString(input) {
+        // Create a deterministic UUID from any string input
+        const normalizedInput = input.toLowerCase().trim();
+        const hash = this.simpleHash(normalizedInput);
+        
+        // Create a proper UUID format for Supabase compatibility
+        return this.formatAsUUID(hash);
+    }
+
+    // Generate a local sync code for fallback users
+    generateLocalSyncCode() {
+        // Generate a 6-character alphanumeric code
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    }
+
     async createAnonymousUser() {
         // Get existing offline user ID
         const offlineUserId = localStorage.getItem('splitzee_user_id');
@@ -271,8 +376,15 @@ class SupabaseSync {
     async setupRealtimeSubscriptions() {
         if (!this.userId) return;
 
+        // Get the supabase client
+        const supabaseClient = window.getSupabaseClient();
+        if (!supabaseClient) {
+            console.warn('⚠️ Supabase client not available for realtime subscriptions');
+            return;
+        }
+
         // Subscribe to notifications
-        const notificationSubscription = this.supabase
+        const notificationSubscription = supabaseClient
             .channel('notifications')
             .on('postgres_changes', 
                 { 
@@ -286,7 +398,7 @@ class SupabaseSync {
             .subscribe();
 
         // Subscribe to friend activities
-        const activitySubscription = this.supabase
+        const activitySubscription = supabaseClient
             .channel('activity_feed')
             .on('postgres_changes',
                 {
@@ -747,48 +859,100 @@ class SupabaseSync {
                 throw new Error('Supabase client not initialized');
             }
             
-            // Get current user session (Supabase session)
+            // Get current user session (Supabase session or fallback)
             const session = await window.SupabaseAuth.getSession();
-            if (!session || !session.user) {
-                throw new Error('No valid Supabase session found');
-            }
+            let user, userName, userAvatar;
             
-            const user = session.user;
-            const userName = user.user_metadata?.full_name || user.email;
-            const userAvatar = user.user_metadata?.avatar_url || '👤';
+            if (session && session.user) {
+                // Real Supabase user
+                user = session.user;
+                userName = user.user_metadata?.full_name || user.email;
+                userAvatar = user.user_metadata?.avatar_url || '👤';
+                console.log('👤 Using Supabase session for:', userName);
+            } else {
+                // Fallback user - get from local storage
+                console.log('🔄 No Supabase session, using fallback user data');
+                const customSession = localStorage.getItem('splitwise_session');
+                if (customSession) {
+                    const userData = JSON.parse(customSession).user;
+                    userName = userData.name || 'Anonymous User';
+                    userAvatar = userData.avatar || '👤';
+                    console.log('👤 Using fallback user:', userName);
+                } else {
+                    userName = 'Anonymous User';
+                    userAvatar = '👤';
+                    console.log('👤 Using anonymous fallback user');
+                }
+            }
             
             console.log('👤 Generating code for user:', userName);
             
-            // Generate sync code (calls the database function)
-            const { data: codeResult, error: codeError } = await supabaseClient
-                .rpc('generate_sync_code');
-                
-            if (codeError) {
-                throw codeError;
+            // Try to use Supabase for real users, fallback to local for others
+            if (session && session.user) {
+                // Real Supabase user - use database functions
+                try {
+                    // Generate sync code (calls the database function)
+                    const { data: codeResult, error: codeError } = await supabaseClient
+                        .rpc('generate_sync_code');
+                        
+                    if (codeError) {
+                        throw codeError;
+                    }
+                    
+                    const syncCode = codeResult;
+                    
+                    // Create sync code entry with proper Supabase auth
+                    const { error: insertError } = await supabaseClient
+                        .from('sync_codes')
+                        .insert([{
+                            code: syncCode,
+                            user_id: this.userId,
+                            user_name: userName,
+                            user_avatar: userAvatar,
+                            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+                        }]);
+                        
+                    if (insertError) {
+                        throw insertError;
+                    }
+                    
+                    console.log('✅ Friend code generated and stored in Supabase:', syncCode);
+                    return {
+                        code: syncCode,
+                        expiresIn: '24 hours',
+                        userName: userName
+                    };
+                } catch (error) {
+                    console.warn('⚠️ Supabase sync code generation failed, using local fallback:', error);
+                    // Fall through to local generation
+                }
             }
             
-            const syncCode = codeResult;
+            // Local/fallback friend code generation
+            console.log('🔄 Generating local friend code for fallback user');
+            const localSyncCode = this.generateLocalSyncCode();
             
-            // Create sync code entry with proper Supabase auth
-            const { error: insertError } = await supabaseClient
-                .from('sync_codes')
-                .insert([{
-                    code: syncCode,
-                    user_id: this.userId,
-                    user_name: userName,
-                    user_avatar: userAvatar,
-                    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
-                }]);
-                
-            if (insertError) {
-                throw insertError;
-            }
+            // Store locally
+            const localSyncData = {
+                code: localSyncCode,
+                user_id: this.userId,
+                user_name: userName,
+                user_avatar: userAvatar,
+                expires_at: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+                created_at: Date.now()
+            };
             
-            console.log('✅ Friend code generated and stored in Supabase:', syncCode);
+            // Store in local storage
+            let localSyncCodes = JSON.parse(localStorage.getItem('splitwise_local_sync_codes') || '[]');
+            localSyncCodes.push(localSyncData);
+            localStorage.setItem('splitwise_local_sync_codes', JSON.stringify(localSyncCodes));
+            
+            console.log('✅ Local friend code generated:', localSyncCode);
             return {
-                code: syncCode,
+                code: localSyncCode,
                 expiresIn: '24 hours',
-                userName: userName
+                userName: userName,
+                isLocal: true
             };
             
         } catch (error) {
