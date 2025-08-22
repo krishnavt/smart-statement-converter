@@ -1078,6 +1078,27 @@ class SupabaseSync {
             
             console.log('✅ Supabase friend relationship created with:', syncData.user_name);
             
+            // Refresh the friends list to show the new friend
+            setTimeout(() => {
+                this.loadFriendsFromSupabase().then(friends => {
+                    console.log('🔄 Friends list refreshed, found:', friends.length, 'friends');
+                    
+                    // Trigger various UI update methods
+                    if (window.updateFriendsList) {
+                        window.updateFriendsList(friends);
+                    }
+                    if (window.loadGroupMembers) {
+                        window.loadGroupMembers();
+                    }
+                    
+                    // Force a page refresh to ensure friends list updates
+                    console.log('🔄 Refreshing page to show new friend...');
+                    window.location.reload();
+                }).catch(err => {
+                    console.warn('⚠️ Could not refresh friends list:', err);
+                });
+            }, 1000);
+            
             return {
                 friendId: syncData.user_id,
                 friendName: syncData.user_name,
