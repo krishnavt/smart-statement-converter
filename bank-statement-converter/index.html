@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Statement Converter - Transform PDF Statements to CSV/Excel</title>
+    <meta name="description" content="The world's most trusted smart statement converter. Easily convert PDF bank statements from 1000s of banks worldwide into clean Excel (XLS) format with Smart Statement Converter.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <span>SMART STATEMENT CONVERTER</span>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <a href="#" class="nav-link" id="loginBtn">Login</a>
+                    <a href="#" class="nav-link primary" id="registerBtn">Register</a>
+                    <div class="language-selector">
+                        <select id="languageSelect">
+                            <option value="en">English</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Français</option>
+                            <option value="de">Deutsch</option>
+                        </select>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">The world's most trusted smart statement converter</h1>
+                <p class="hero-subtitle">Easily convert PDF bank statements from 1000s of banks world wide into clean Excel (XLS) format.</p>
+                
+                <!-- File Upload Area -->
+                <div class="upload-section">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <path d="M24 8L32 16H28V24H20V16H16L24 8Z" fill="#6B7280"/>
+                                <path d="M12 32V36C12 37.1 12.9 38 14 38H34C35.1 38 36 37.1 36 36V32" stroke="#6B7280" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <p class="upload-text">
+                            <span class="upload-main">Click to upload or drag and drop</span>
+                            <span class="upload-sub">PDF files only (max 10MB)</span>
+                        </p>
+                        <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                        <button class="upload-btn" id="uploadBtn">Choose Files</button>
+                    </div>
+                    
+                    <!-- Upload Status -->
+                    <div class="upload-status" id="uploadStatus" hidden>
+                        <div class="status-item">
+                            <span class="status-filename">sample-statement.pdf</span>
+                            <span class="status-progress">Processing...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Icons -->
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon">🔒</div>
+                        <h3>Secure</h3>
+                        <p>With years of experience in banking we comply with strict standards when handling your files.</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🏢</div>
+                        <h3>Institutional</h3>
+                        <p>We've provided our services to thousands of reputable financial, accounting and legal firms.</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎯</div>
+                        <h3>Accurate</h3>
+                        <p>We're continually improving our algorithms. If a file doesn't convert to your expectations, email us and we'll fix it.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing" id="pricing">
+        <div class="container">
+            <div class="pricing-header">
+                <div class="plan-toggle">
+                    <button class="toggle-btn active" data-plan="monthly">Monthly Plan</button>
+                    <button class="toggle-btn" data-plan="annual">Annual Plan</button>
+                    <span class="savings-badge">Save more yearly!</span>
+                </div>
+            </div>
+
+            <div class="pricing-grid">
+                <!-- Anonymous Plan -->
+                <div class="pricing-card">
+                    <div class="card-header">
+                        <h3>Anonymous</h3>
+                        <p class="card-subtitle">Anonymous conversions with no need to sign up</p>
+                    </div>
+                    <div class="card-limit">
+                        <span class="limit-number">1</span>
+                        <span class="limit-text">page every 24 hours</span>
+                    </div>
+                    <div class="card-price">
+                        <span class="price">Free</span>
+                    </div>
+                    <button class="card-btn" onclick="startAnonymousConversion()">Start Converting</button>
+                </div>
+
+                <!-- Registered Plan -->
+                <div class="pricing-card">
+                    <div class="card-header">
+                        <h3>Registered</h3>
+                        <p class="card-subtitle">Registration is free</p>
+                    </div>
+                    <div class="card-limit">
+                        <span class="limit-number">5</span>
+                        <span class="limit-text">pages every 24 hours</span>
+                    </div>
+                    <div class="card-price">
+                        <span class="price">Free</span>
+                    </div>
+                    <button class="card-btn" onclick="showRegister()">Register</button>
+                </div>
+
+                <!-- Starter Plan -->
+                <div class="pricing-card recommended">
+                    <div class="recommended-badge">Recommended</div>
+                    <div class="card-header">
+                        <h3>Starter</h3>
+                        <p class="card-subtitle">Perfect for small businesses</p>
+                    </div>
+                    <div class="card-limit monthly-limit">
+                        <span class="limit-number">400</span>
+                        <span class="limit-text">pages / month</span>
+                    </div>
+                    <div class="card-limit annual-limit" style="display: none;">
+                        <span class="limit-number">4800</span>
+                        <span class="limit-text">pages / year</span>
+                    </div>
+                    <div class="card-price">
+                        <span class="price monthly-price">$30<span class="period">/ month</span></span>
+                        <span class="price annual-price" style="display: none;">$180<span class="period">/ year</span></span>
+                    </div>
+                    <button class="card-btn primary" data-plan="starter">Buy</button>
+                </div>
+
+                <!-- Professional Plan -->
+                <div class="pricing-card">
+                    <div class="card-header">
+                        <h3>Professional</h3>
+                        <p class="card-subtitle">For growing businesses</p>
+                    </div>
+                    <div class="card-limit monthly-limit">
+                        <span class="limit-number">1000</span>
+                        <span class="limit-text">pages / month</span>
+                    </div>
+                    <div class="card-limit annual-limit" style="display: none;">
+                        <span class="limit-number">12000</span>
+                        <span class="limit-text">pages / year</span>
+                    </div>
+                    <div class="card-price">
+                        <span class="price monthly-price">$60<span class="period">/ month</span></span>
+                        <span class="price annual-price" style="display: none;">$360<span class="period">/ year</span></span>
+                    </div>
+                    <button class="card-btn primary" data-plan="professional">Buy</button>
+                </div>
+
+                <!-- Business Plan -->
+                <div class="pricing-card">
+                    <div class="card-header">
+                        <h3>Business</h3>
+                        <p class="card-subtitle">For large organizations</p>
+                    </div>
+                    <div class="card-limit monthly-limit">
+                        <span class="limit-number">4000</span>
+                        <span class="limit-text">pages / month</span>
+                    </div>
+                    <div class="card-limit annual-limit" style="display: none;">
+                        <span class="limit-number">48000</span>
+                        <span class="limit-text">pages / year</span>
+                    </div>
+                    <div class="card-price">
+                        <span class="price monthly-price">$99<span class="period">/ month</span></span>
+                        <span class="price annual-price" style="display: none;">$599<span class="period">/ year</span></span>
+                    </div>
+                    <button class="card-btn primary" data-plan="business">Buy</button>
+                </div>
+
+                <!-- Enterprise Plan -->
+                <div class="pricing-card">
+                    <div class="card-header">
+                        <h3>Enterprise</h3>
+                        <p class="card-subtitle">Custom solutions</p>
+                    </div>
+                    <div class="card-limit">
+                        <span class="limit-text">Need More?</span>
+                    </div>
+                    <div class="card-price">
+                        <span class="price">Custom</span>
+                    </div>
+                    <button class="card-btn" onclick="contactEnterprise()">Contact</button>
+                </div>
+            </div>
+
+            <div class="pricing-footer">
+                <p>Need more?</p>
+                <p>We provide bespoke services for clients who have other document formats to process. Let us know how we can help!</p>
+                <button class="contact-btn" onclick="contactSupport()">Contact Us</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results" id="resultsSection" style="display: none;">
+        <div class="container">
+            <h2>Conversion Results</h2>
+            <div class="results-grid" id="resultsGrid">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="/api-docs">API Docs</a>
+                    <a href="/about">About</a>
+                    <a href="/terms">Terms</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/blog">Blog</a>
+                </div>
+                <div class="footer-copy">
+                    <p>Copyright © 2025 Smart Statement Converter Ltd.</p>
+                    <p>Accurately Convert PDF Bank Statements to CSV</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login</h3>
+                <button class="close-btn" onclick="closeModal('loginModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Login</button>
+                </form>
+                <p class="auth-switch">
+                    Don't have an account? <a href="#" onclick="switchToRegister()">Register</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal" id="registerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Register</h3>
+                <button class="close-btn" onclick="closeModal('registerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerEmail">Email</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" required>
+                    </div>
+                    <button type="submit" class="btn primary full-width">Register</button>
+                </form>
+                <p class="auth-switch">
+                    Already have an account? <a href="#" onclick="switchToLogin()">Login</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Converting your bank statement...</p>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

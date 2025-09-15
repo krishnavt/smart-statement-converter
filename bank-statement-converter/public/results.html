@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversion Results - Smart Statement Converter</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .results-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .results-header {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+        
+        .results-header h1 {
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        
+        .results-info {
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+        
+        .download-section {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+        
+        .download-btn {
+            background: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s;
+        }
+        
+        .download-btn:hover {
+            background: #4338ca;
+        }
+        
+        .download-btn.secondary {
+            background: #6b7280;
+        }
+        
+        .download-btn.secondary:hover {
+            background: #4b5563;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .table-header {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .table-header h2 {
+            margin: 0;
+            color: #1f2937;
+            font-size: 1.25rem;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        
+        .results-table th {
+            background: #f8fafc;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        
+        .results-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #f3f4f6;
+            color: #4b5563;
+        }
+        
+        .results-table tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        .amount-positive {
+            color: #059669;
+            font-weight: 600;
+        }
+        
+        .amount-negative {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        
+        .transaction-type {
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .transaction-type.withdrawal {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .transaction-type.deposit {
+            background: #f0fdf4;
+            color: #166534;
+        }
+        
+        .transaction-type.payment {
+            background: #fefbeb;
+            color: #a16207;
+        }
+        
+        .transaction-type.interest {
+            background: #f0f9ff;
+            color: #0369a1;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .summary-card {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+        
+        .summary-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: #6b7280;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .summary-card .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+        
+        .back-btn {
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            transition: color 0.2s;
+        }
+        
+        .back-btn:hover {
+            color: #4338ca;
+        }
+        
+        @media (max-width: 768px) {
+            .results-container {
+                margin: 1rem auto;
+                padding: 0 0.5rem;
+            }
+            
+            .results-header {
+                padding: 1.5rem;
+            }
+            
+            .download-section {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .results-table {
+                font-size: 0.75rem;
+            }
+            
+            .results-table th,
+            .results-table td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="results-container">
+        <a href="index.html" class="back-btn">
+            ← Back to Converter
+        </a>
+        
+        <div class="results-header">
+            <h1>✅ Conversion Completed Successfully!</h1>
+            <div class="results-info">
+                <p><strong>File:</strong> <span id="originalFilename">statement.pdf</span></p>
+                <p><strong>Transactions Found:</strong> <span id="transactionCount">0</span></p>
+                <p><strong>Converted:</strong> <span id="conversionTime"></span></p>
+            </div>
+            
+            <div class="download-section">
+                <button class="download-btn" id="downloadCSV">
+                    📄 Download CSV
+                </button>
+                <button class="download-btn secondary" id="downloadExcel">
+                    📊 Download Excel
+                </button>
+                <button class="download-btn secondary" onclick="window.print()">
+                    🖨️ Print Table
+                </button>
+            </div>
+        </div>
+        
+        <div class="summary-cards">
+            <div class="summary-card">
+                <h3>Total Transactions</h3>
+                <div class="value" id="totalTransactions">0</div>
+            </div>
+            <div class="summary-card">
+                <h3>Total Deposits</h3>
+                <div class="value amount-positive" id="totalDeposits">$0.00</div>
+            </div>
+            <div class="summary-card">
+                <h3>Total Withdrawals</h3>
+                <div class="value amount-negative" id="totalWithdrawals">$0.00</div>
+            </div>
+            <div class="summary-card">
+                <h3>Final Balance</h3>
+                <div class="value" id="finalBalance">$0.00</div>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Transaction Details</h2>
+            </div>
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTableBody">
+                        <!-- Transactions will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Get data from URL parameters or localStorage
+        function getResultsData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const data = urlParams.get('data');
+            
+            if (data) {
+                try {
+                    return JSON.parse(decodeURIComponent(data));
+                } catch (e) {
+                    console.error('Error parsing URL data:', e);
+                }
+            }
+            
+            // Fallback to localStorage
+            const storedData = localStorage.getItem('conversionResults');
+            if (storedData) {
+                try {
+                    return JSON.parse(storedData);
+                } catch (e) {
+                    console.error('Error parsing stored data:', e);
+                }
+            }
+            
+            return null;
+        }
+        
+        // Parse CSV data into array of objects
+        function parseCSVData(csvData) {
+            console.log('Parsing CSV data:', csvData);
+            
+            if (!csvData) {
+                console.log('No CSV data provided');
+                return [];
+            }
+            
+            const lines = csvData.split('\n');
+            console.log('CSV lines:', lines.length);
+            
+            if (lines.length < 2) {
+                console.log('Not enough lines in CSV');
+                return [];
+            }
+            
+            // Parse headers - handle quoted CSV properly
+            const headerLine = lines[0];
+            const headers = parseCSVLine(headerLine).map(h => h.toLowerCase().trim());
+            console.log('Headers:', headers);
+            
+            const transactions = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const values = parseCSVLine(line);
+                    if (values.length === headers.length) {
+                        const transaction = {};
+                        headers.forEach((header, index) => {
+                            transaction[header] = values[index] || '';
+                        });
+                        transactions.push(transaction);
+                    }
+                }
+            }
+            
+            console.log('Parsed transactions:', transactions.length);
+            return transactions;
+        }
+        
+        // Properly parse a CSV line with quoted values
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+                
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        // Handle escaped quotes
+                        current += '"';
+                        i++; // Skip next quote
+                    } else {
+                        // Toggle quote state
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    // End of field
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            // Add the last field
+            result.push(current.trim());
+            
+            return result;
+        }
+        
+        // Format amount for display
+        function formatAmount(amount) {
+            const num = parseFloat(amount);
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(Math.abs(num));
+        }
+        
+        // Get transaction type class
+        function getTransactionTypeClass(type) {
+            const lowerType = type.toLowerCase();
+            if (lowerType.includes('withdrawal') || lowerType.includes('payment')) {
+                return 'withdrawal';
+            } else if (lowerType.includes('deposit')) {
+                return 'deposit';
+            } else if (lowerType.includes('interest')) {
+                return 'interest';
+            } else {
+                return 'payment';
+            }
+        }
+        
+        // Calculate summary statistics
+        function calculateSummary(transactions) {
+            let totalDeposits = 0;
+            let totalWithdrawals = 0;
+            let finalBalance = 0;
+            
+            transactions.forEach(transaction => {
+                const amount = parseFloat(transaction.amount);
+                if (amount > 0) {
+                    totalDeposits += amount;
+                } else {
+                    totalWithdrawals += Math.abs(amount);
+                }
+                
+                if (transaction.balance) {
+                    finalBalance = parseFloat(transaction.balance);
+                }
+            });
+            
+            return {
+                totalTransactions: transactions.length,
+                totalDeposits,
+                totalWithdrawals,
+                finalBalance
+            };
+        }
+        
+        // Populate the results page
+        function populateResults() {
+            const resultsData = getResultsData();
+            
+            console.log('Results data:', resultsData);
+            
+            if (!resultsData) {
+                alert('No conversion data found. Please convert a file first.');
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            // Update header info
+            document.getElementById('originalFilename').textContent = resultsData.originalFilename || 'statement.pdf';
+            document.getElementById('transactionCount').textContent = resultsData.transactionCount || 0;
+            document.getElementById('conversionTime').textContent = new Date().toLocaleString();
+            
+            // Parse CSV data
+            const transactions = parseCSVData(resultsData.csvData);
+            
+            // Calculate summary
+            const summary = calculateSummary(transactions);
+            
+            // Update summary cards
+            document.getElementById('totalTransactions').textContent = summary.totalTransactions;
+            document.getElementById('totalDeposits').textContent = formatAmount(summary.totalDeposits);
+            document.getElementById('totalWithdrawals').textContent = formatAmount(summary.totalWithdrawals);
+            document.getElementById('finalBalance').textContent = formatAmount(summary.finalBalance);
+            
+            // Populate table
+            const tableBody = document.getElementById('transactionTableBody');
+            tableBody.innerHTML = '';
+            
+            transactions.forEach(transaction => {
+                const row = document.createElement('tr');
+                const amount = parseFloat(transaction.amount);
+                const isPositive = amount >= 0;
+                
+                row.innerHTML = `
+                    <td>${transaction.date}</td>
+                    <td><span class="transaction-type ${getTransactionTypeClass(transaction.type)}">${transaction.type}</span></td>
+                    <td title="${transaction.description}">${transaction.description.length > 50 ? transaction.description.substring(0, 50) + '...' : transaction.description}</td>
+                    <td class="${isPositive ? 'amount-positive' : 'amount-negative'}">${formatAmount(amount)}</td>
+                    <td>${formatAmount(transaction.balance)}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Setup download buttons
+            setupDownloadButtons(resultsData);
+        }
+        
+        // Setup download functionality
+        function setupDownloadButtons(resultsData) {
+            const downloadCSVBtn = document.getElementById('downloadCSV');
+            const downloadExcelBtn = document.getElementById('downloadExcel');
+            
+            downloadCSVBtn.addEventListener('click', () => {
+                const blob = new Blob([resultsData.csvData], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = resultsData.filename || 'converted_statement.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            
+            downloadExcelBtn.addEventListener('click', () => {
+                // Convert CSV to Excel format (simplified)
+                const excelData = resultsData.csvData.replace(/,/g, '\\t');
+                const blob = new Blob([excelData], { type: 'application/vnd.ms-excel' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (resultsData.filename || 'converted_statement.csv').replace('.csv', '.xls');
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', populateResults);
+    </script>
+</body>
+</html>
