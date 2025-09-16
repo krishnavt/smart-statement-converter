@@ -12,63 +12,69 @@ class SmartStatementConverter {
         this.setupEventListeners();
         this.checkAuthStatus();
         this.setupPlanToggle();
+        
+        // Force check auth status after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            console.log('🔄 Force checking auth status...');
+            this.checkAuthStatus();
+        }, 100);
     }
 
     setupEventListeners() {
-        // File upload
+        // File upload - only on main page
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const uploadBtn = document.getElementById('uploadBtn');
 
-        // Upload area click
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            fileInput.click();
-        });
+        if (uploadArea && fileInput && uploadBtn) {
+            // Upload area click
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                fileInput.click();
+            });
 
-        // File input change
-        fileInput.addEventListener('change', (e) => this.handleFileSelect(e.target.files));
+            // File input change
+            fileInput.addEventListener('change', (e) => this.handleFileSelect(e.target.files));
 
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
 
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
 
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            this.handleFileSelect(e.dataTransfer.files);
-        });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                this.handleFileSelect(e.dataTransfer.files);
+            });
+        }
 
-        // Auth buttons
-        document.getElementById('loginBtn').addEventListener('click', () => this.showModal('loginModal'));
-        document.getElementById('registerBtn').addEventListener('click', () => this.showModal('registerModal'));
+        // Note: Login/Register are now separate pages at /api/login and /api/register
+        // No need for modal buttons or form submissions on main page
 
-        // Form submissions
-        document.getElementById('loginForm').addEventListener('submit', (e) => this.handleLogin(e));
-        document.getElementById('registerForm').addEventListener('submit', (e) => this.handleRegister(e));
-
-        // Plan buttons
-        document.querySelectorAll('.card-btn[data-plan]').forEach(btn => {
+        // Plan buttons - only on main page
+        const planButtons = document.querySelectorAll('.card-btn[data-plan]');
+        planButtons.forEach(btn => {
             btn.addEventListener('click', (e) => this.handlePlanPurchase(e.target.dataset.plan));
         });
     }
 
     setupPlanToggle() {
         const toggleBtns = document.querySelectorAll('.toggle-btn');
-        toggleBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                toggleBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.togglePricingPlan(btn.dataset.plan);
+        if (toggleBtns.length > 0) {
+            toggleBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toggleBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.togglePricingPlan(btn.dataset.plan);
+                });
             });
-        });
+        }
     }
 
     togglePricingPlan(plan) {
@@ -351,27 +357,84 @@ class SmartStatementConverter {
     }
 
     checkAuthStatus() {
-        // Check if user is logged in (from localStorage or cookies)
-        const savedUser = localStorage.getItem('currentUser');
-        if (savedUser) {
-            this.currentUser = JSON.parse(savedUser);
-            this.updateAuthUI();
+        console.log('🔍 Checking auth status...');
+        // Check if user is logged in with Google auth
+        const userToken = localStorage.getItem('userToken');
+        const userData = localStorage.getItem('userData');
+        
+        console.log('🔍 UserToken exists:', !!userToken);
+        console.log('🔍 UserData exists:', !!userData);
+        console.log('🔍 UserData content:', userData);
+        
+        if (userToken && userData) {
+            try {
+                this.currentUser = JSON.parse(userData);
+                console.log('🔍 Parsed user:', this.currentUser);
+                this.updateAuthUI();
+            } catch (error) {
+                console.error('❌ Error parsing user data:', error);
+                this.logout();
+            }
+        } else {
+            console.log('🔍 No user authentication found');
         }
     }
 
     updateAuthUI() {
-        const loginBtn = document.getElementById('loginBtn');
-        const registerBtn = document.getElementById('registerBtn');
+        console.log('🔄 Updating auth UI for user:', this.currentUser);
+        const navMenu = document.querySelector('.nav-menu');
+        console.log('🔄 Nav menu found:', !!navMenu);
         
-        if (this.currentUser) {
-            loginBtn.textContent = this.currentUser.email;
-            registerBtn.style.display = 'none';
-            localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
-        } else {
-            loginBtn.textContent = 'Login';
-            registerBtn.style.display = 'block';
-            localStorage.removeItem('currentUser');
+        if (this.currentUser && navMenu) {
+            // Check if user menu already exists
+            const existingUserMenu = navMenu.querySelector('.user-menu');
+            console.log('🔄 Existing user menu found:', !!existingUserMenu);
+            
+            if (existingUserMenu) {
+                console.log('🔄 User menu already exists, skipping update');
+                return;
+            }
+            
+            const loginLink = navMenu.querySelector('a[href="/api/login"]');
+            const registerLink = navMenu.querySelector('a[href="/api/register"]');
+            console.log('🔄 Login link found:', !!loginLink);
+            console.log('🔄 Register link found:', !!registerLink);
+            
+            if (loginLink && registerLink) {
+                // Create user menu HTML
+                const userMenuHTML = \`
+                    <div class="user-menu" style="display: flex; align-items: center; gap: 1rem;">
+                        <img src="\${this.currentUser.picture}" alt="\${this.currentUser.name}" 
+                             style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid #E5E7EB;">
+                        <span style="font-weight: 500; color: #374151;">\${this.currentUser.name}</span>
+                        <button onclick="app.logout()" style="background: #EF4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem;">
+                            Logout
+                        </button>
+                    </div>
+                \`;
+                
+                // Replace both links with user menu
+                registerLink.remove();
+                loginLink.outerHTML = userMenuHTML;
+                console.log('🔄 Successfully replaced login/register links with user menu');
+            } else {
+                console.log('🔄 Could not find login/register links to replace');
+            }
+        } else if (!this.currentUser) {
+            console.log('🔄 No current user, skipping UI update');
+        } else if (!navMenu) {
+            console.log('🔄 Nav menu not found, skipping UI update');
         }
+    }
+
+    logout() {
+        // Clear stored auth data
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('userData');
+        this.currentUser = null;
+        
+        // Redirect to home page
+        window.location.href = '/';
     }
 
     showModal(modalId) {
@@ -469,7 +532,9 @@ function startAnonymousConversion() {
 }
 
 function showRegister() {
-    app.showModal('registerModal');
+    if (app && app.showModal) {
+        app.showModal('registerModal');
+    }
 }
 
 function contactEnterprise() {
@@ -481,21 +546,53 @@ function contactSupport() {
 }
 
 function switchToRegister() {
-    app.closeModal('loginModal');
-    app.showModal('registerModal');
+    if (app && app.closeModal && app.showModal) {
+        app.closeModal('loginModal');
+        app.showModal('registerModal');
+    }
 }
 
 function switchToLogin() {
-    app.closeModal('registerModal');
-    app.showModal('loginModal');
+    if (app && app.closeModal && app.showModal) {
+        app.closeModal('registerModal');
+        app.showModal('loginModal');
+    }
 }
 
 function closeModal(modalId) {
-    app.closeModal(modalId);
+    if (app && app.closeModal) {
+        app.closeModal(modalId);
+    }
 }
 
-// Initialize app
-const app = new SmartStatementConverter();
+// Initialize app when DOM is ready - only on main page
+let app;
+
+function initializeApp() {
+    // Check if we're on the main page (has upload area) vs login/register pages
+    const isMainPage = document.getElementById('uploadArea') !== null;
+    const isLoginPage = window.location.pathname.includes('/api/login');
+    const isRegisterPage = window.location.pathname.includes('/api/register');
+    
+    console.log('🚀 Page type:', { isMainPage, isLoginPage, isRegisterPage });
+    
+    if (isMainPage) {
+        console.log('🚀 Main page detected, initializing SmartStatementConverter...');
+        app = new SmartStatementConverter();
+    } else {
+        console.log('🚀 Login/Register page detected, skipping SmartStatementConverter initialization');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initializeApp);
+
+// Fallback for already loaded DOM
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded
+} else {
+    // DOM is already loaded
+    initializeApp();
+}
 
 // Add modal close functionality
 document.addEventListener('click', (e) => {
