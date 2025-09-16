@@ -1,4 +1,5 @@
 // Smart Statement Converter - Main JavaScript
+console.log('🔥 LATEST SCRIPT VERSION LOADED - BUILD 2025-12-16-v2 🔥');
 
 class SmartStatementConverter {
     constructor() {
