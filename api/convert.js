@@ -21,24 +21,25 @@ const upload = multer({
 const BANK_PATTERNS = {
     // Common date patterns
     datePatterns: [
-        /(\d{1,2}\/\d{1,2}\/\d{2,4})/g,
-        /(\d{1,2}-\d{1,2}-\d{2,4})/g,
-        /(\w{3}\s+\d{1,2},?\s+\d{4})/g,
-        /(\d{1,2}\s+\w{3}\s+\d{4})/g
+        /(\w{3}\s+\d{1,2},?\s+\d{4})/g, // Aug 31, 2025
+        /(\d{1,2}\/\d{1,2}\/\d{2,4})/g, // 08/31/2025
+        /(\d{1,2}-\d{1,2}-\d{2,4})/g,   // 08-31-2025
+        /(\d{1,2}\s+\w{3}\s+\d{4})/g    // 31 Aug 2025
     ],
     
     // Amount patterns (with optional currency symbols)
     amountPatterns: [
-        /[\$]?([+-]?\d{1,3}(?:,\d{3})*\.?\d{0,2})/g,
-        /([+-]?\d+\.\d{2})/g,
-        /([+-]?\d{1,3}(?:,\d{3})+)/g
+        /\$([+-]?\d{1,3}(?:,\d{3})*\.\d{2})/g,    // $1,234.56
+        /-\$(\d{1,3}(?:,\d{3})*\.\d{2})/g,        // -$1,234.56
+        /([+-]?\d{1,3}(?:,\d{3})*\.\d{2})/g,      // 1234.56 or -1234.56
+        /\$(\d+\.\d{2})/g                         // $123.45
     ],
     
     // Transaction type keywords
     transactionTypes: [
-        'deposit', 'withdrawal', 'transfer', 'payment', 'debit', 'credit',
-        'check', 'atm', 'fee', 'interest', 'dividend', 'purchase', 'refund',
-        'direct deposit', 'automatic payment', 'wire transfer', 'ach'
+        'interest earned', 'withdrawal', 'deposit', 'direct payment', 'direct deposit',
+        'transfer', 'payment', 'debit', 'credit', 'check', 'atm', 'fee', 
+        'interest', 'dividend', 'purchase', 'refund', 'automatic payment', 'wire transfer', 'ach'
     ],
     
     // Balance keywords
