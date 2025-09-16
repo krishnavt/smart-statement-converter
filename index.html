@@ -26,8 +26,8 @@
                 </div>
                 <div class="nav-menu">
                     <a href="#pricing" class="nav-link">Pricing</a>
-                    <a href="#" class="nav-link" id="loginBtn">Login</a>
-                    <a href="#" class="nav-link primary" id="registerBtn">Register</a>
+                    <a href="/api/login" class="nav-link">Login</a>
+                    <a href="/api/register" class="nav-link primary">Register</a>
                     <div class="language-selector">
                         <select id="languageSelect">
                             <option value="en">English</option>
@@ -137,7 +137,7 @@
                     <div class="card-price">
                         <span class="price">Free</span>
                     </div>
-                    <button class="card-btn" onclick="showRegister()">Register</button>
+                    <button class="card-btn" onclick="window.location.href='/api/register'">Register</button>
                 </div>
 
                 <!-- Starter Plan -->
@@ -257,61 +257,6 @@
         </div>
     </footer>
 
-    <!-- Login Modal -->
-    <div class="modal" id="loginModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Login</h3>
-                <button class="close-btn" onclick="closeModal('loginModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="loginEmail">Email</label>
-                        <input type="email" id="loginEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" required>
-                    </div>
-                    <button type="submit" class="btn primary full-width">Login</button>
-                </form>
-                <p class="auth-switch">
-                    Don't have an account? <a href="#" onclick="switchToRegister()">Register</a>
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Register Modal -->
-    <div class="modal" id="registerModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Register</h3>
-                <button class="close-btn" onclick="closeModal('registerModal')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="registerForm">
-                    <div class="form-group">
-                        <label for="registerEmail">Email</label>
-                        <input type="email" id="registerEmail" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="registerPassword">Password</label>
-                        <input type="password" id="registerPassword" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="confirmPassword">Confirm Password</label>
-                        <input type="password" id="confirmPassword" required>
-                    </div>
-                    <button type="submit" class="btn primary full-width">Register</button>
-                </form>
-                <p class="auth-switch">
-                    Already have an account? <a href="#" onclick="switchToLogin()">Login</a>
-                </p>
-            </div>
-        </div>
-    </div>
 
     <!-- Loading Spinner -->
     <div class="loading-overlay" id="loadingOverlay">
