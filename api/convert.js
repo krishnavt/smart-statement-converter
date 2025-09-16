@@ -116,6 +116,8 @@ function parseBankStatement(text) {
     
     // If no transactions found, create sample data
     if (transactions.length === 0) {
+        console.log('No transactions parsed from PDF text, using sample data');
+        console.log('PDF text preview (first 500 chars):', text.substring(0, 500));
         return createSampleTransactions();
     }
     
@@ -310,14 +312,20 @@ export default async function handler(req, res) {
         const originalName = req.file.originalname.replace('.pdf', '');
         const filename = `${originalName}_converted.csv`;
         
+        // Check if using mock data
+        const usingMockData = transactions.length > 0 && transactions[0].description === 'Direct Deposit - Salary';
+        
         console.log('=== PDF Conversion Completed Successfully ===');
+        console.log('Using mock data:', usingMockData);
         
         res.json({
             success: true,
             filename: filename,
             csvData: csvData,
             transactionCount: transactions.length,
-            originalFilename: req.file.originalname
+            originalFilename: req.file.originalname,
+            usingMockData: usingMockData,
+            pdfTextLength: data.text.length
         });
         
     } catch (error) {

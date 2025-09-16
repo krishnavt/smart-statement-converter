@@ -16,11 +16,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.')); // Serve static files from current directory
 
-// Ensure upload directories exist
+// Ensure upload directories exist (only in local development)
 const uploadDir = './uploads';
 const tempDir = './temp';
-fs.ensureDirSync(uploadDir);
-fs.ensureDirSync(tempDir);
+if (!process.env.VERCEL) {
+    fs.ensureDirSync(uploadDir);
+    fs.ensureDirSync(tempDir);
+}
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
