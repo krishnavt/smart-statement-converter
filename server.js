@@ -419,6 +419,157 @@ app.use((error, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+// Add API routes for local development
+app.get('/api/login', (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Statement Converter</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <a href="/" style="text-decoration: none; color: inherit;">
+                            <span>SMART STATEMENT CONVERTER</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/#pricing" class="nav-link">Pricing</a>
+                    <a href="/api/login" class="nav-link">Login</a>
+                    <a href="/api/register" class="nav-link primary">Register</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero" style="min-height: 80vh; display: flex; align-items: center;">
+        <div class="container">
+            <div class="hero-content" style="max-width: 400px; margin: 0 auto;">
+                <h1 class="hero-title" style="font-size: 2.5rem; margin-bottom: 1rem;">Welcome Back</h1>
+                <p class="hero-subtitle" style="margin-bottom: 2rem;">Sign in to your account to continue converting your bank statements.</p>
+                
+                <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
+                    <form id="loginForm" style="width: 100%;">
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="loginEmail" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Email Address</label>
+                            <input type="email" id="loginEmail" required style="width: 100%; padding: 0.75rem; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 1rem;" placeholder="Enter your email">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 2rem;">
+                            <label for="loginPassword" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Password</label>
+                            <input type="password" id="loginPassword" required style="width: 100%; padding: 0.75rem; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 1rem;" placeholder="Enter your password">
+                        </div>
+                        
+                        <button type="submit" style="width: 100%; background: #4F46E5; color: white; padding: 0.875rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;">
+                            Sign In
+                        </button>
+                    </form>
+                    
+                    <div style="margin: 2rem 0; text-align: center; position: relative;">
+                        <span style="background: white; padding: 0 1rem; color: #6B7280; font-size: 0.9rem;">or</span>
+                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #E5E7EB; z-index: -1;"></div>
+                    </div>
+                    
+                    <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
+                    
+                    <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
+                        Don't have an account? <a href="/api/register" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Create one</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Load Google Client ID and initialize
+        fetch('/api/auth/config')
+            .then(response => response.json())
+            .then(data => {
+                if (data.googleClientId && window.google) {
+                    window.google.accounts.id.initialize({
+                        client_id: data.googleClientId,
+                        callback: handleGoogleSignIn
+                    });
+                    
+                    window.google.accounts.id.renderButton(
+                        document.getElementById('googleSignInDiv'),
+                        { theme: 'outline', size: 'large', text: 'signin_with' }
+                    );
+                }
+            });
+        
+        function handleGoogleSignIn(response) {
+            fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: response.credential })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    localStorage.setItem('userToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
+                    alert('Welcome ' + data.user.name + '! Redirecting...');
+                    window.location.href = '/';
+                } else {
+                    alert('Login failed: ' + data.message);
+                }
+            });
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Regular login not implemented yet. Please use Google Sign-In.');
+        });
+    </script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+});
+
+app.get('/api/auth/config', (req, res) => {
+    res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || ''
+    });
+});
+
+app.post('/api/auth/google', (req, res) => {
+    // For local development, just simulate successful auth
+    const { credential } = req.body;
+    
+    // In real app, verify with Google here
+    const mockUser = {
+        id: 'mock-user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+        picture: 'https://via.placeholder.com/32',
+        provider: 'google'
+    };
+    
+    res.json({
+        success: true,
+        user: mockUser,
+        token: 'mock-jwt-token',
+        message: 'Authentication successful'
+    });
+});
+
 // Serve the main page
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));

@@ -53,16 +53,16 @@ class SmartStatementConverter {
                 uploadArea.classList.remove('dragover');
                 this.handleFileSelect(e.dataTransfer.files);
             });
+
+            // Plan buttons - only on main page
+            const planButtons = document.querySelectorAll('.card-btn[data-plan]');
+            planButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => this.handlePlanPurchase(e.target.dataset.plan));
+            });
         }
 
         // Note: Login/Register are now separate pages at /api/login and /api/register
         // No need for modal buttons or form submissions on main page
-
-        // Plan buttons - only on main page
-        const planButtons = document.querySelectorAll('.card-btn[data-plan]');
-        planButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => this.handlePlanPurchase(e.target.dataset.plan));
-        });
     }
 
     setupPlanToggle() {
