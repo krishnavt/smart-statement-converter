@@ -56,7 +56,12 @@ export default async function handler(req, res) {
         
         // Create JWT token for session
         const sessionToken = jwt.sign(
-            userData,
+            { 
+                userId: userData.id, 
+                email: userData.email,
+                name: userData.name,
+                googleId: userData.id
+            },
             process.env.JWT_SECRET || 'fallback-secret-change-in-production',
             { expiresIn: '7d' }
         );

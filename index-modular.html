@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Statement Converter - Transform PDF Statements to CSV/Excel</title>
+    <meta name="description" content="The world's most trusted smart statement converter. Easily convert PDF bank statements from 1000s of banks worldwide into clean Excel (XLS) format with Smart Statement Converter.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <span>SMART STATEMENT CONVERTER</span>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <a href="/api/login" class="nav-link">Login</a>
+                    <a href="/api/register" class="nav-link primary">Register</a>
+                    <div class="language-selector">
+                        <select id="languageSelect">
+                            <option value="en">English</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Français</option>
+                            <option value="de">Deutsch</option>
+                        </select>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">The world's most trusted smart statement converter</h1>
+                <p class="hero-subtitle">Easily convert PDF bank statements from 1000s of banks world wide into clean Excel (XLS) format.</p>
+                
+                <!-- File Upload Area -->
+                <div class="upload-section">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <path d="M24 8L32 16H28V24H20V16H16L24 8Z" fill="#6B7280"/>
+                                <path d="M12 32V36C12 37.1 12.9 38 14 38H34C35.1 38 36 37.1 36 36V32" stroke="#6B7280" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <p class="upload-text">
+                            <span class="upload-main">Click to upload or drag and drop</span>
+                            <span class="upload-sub">PDF files only (max 10MB)</span>
+                        </p>
+                        <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                        <button class="upload-btn" id="uploadBtn">Choose Files</button>
+                    </div>
+                    
+                    <!-- Upload Status -->
+                    <div class="upload-status" id="uploadStatus" hidden>
+                        <div class="status-item">
+                            <span class="status-filename">sample-statement.pdf</span>
+                            <span class="status-progress">Processing...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Icons -->
+                <div class="features-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon">🔒</div>
+                        <h3>Secure</h3>
+                        <p>With years of experience in banking we comply with strict standards when handling your files.</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🏢</div>
+                        <h3>Institutional</h3>
+                        <p>We've provided our services to thousands of reputable financial, accounting and legal firms.</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon">🎯</div>
+                        <h3>Accurate</h3>
+                        <p>We're continually improving our algorithms. If a file doesn't convert to your expectations, email us and we'll fix it.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <div class="pricing-header">
+                <h2>Choose Your Plan</h2>
+                <p>Select the perfect plan for your PDF conversion needs</p>
+                
+                <!-- Billing Toggle -->
+                <div class="billing-toggle">
+                    <button class="toggle-btn active" data-plan="monthly">Monthly</button>
+                    <button class="toggle-btn" data-plan="annual">Annual</button>
+                </div>
+            </div>
+            
+            <div class="pricing-grid">
+                <!-- Free Plan -->
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3>Free</h3>
+                        <div class="plan-price">
+                            <span class="price">$0</span>
+                            <span class="period">/month</span>
+                        </div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>5 pages per day</li>
+                        <li>Basic PDF conversion</li>
+                        <li>CSV export</li>
+                        <li>Community support</li>
+                    </ul>
+                    <button class="btn-secondary full-width" onclick="startAnonymousConversion()">Get Started</button>
+                </div>
+                
+                <!-- Starter Plan -->
+                <div class="pricing-card featured">
+                    <div class="plan-badge">Most Popular</div>
+                    <div class="plan-header">
+                        <h3>Starter</h3>
+                        <div class="plan-price">
+                            <span class="price monthly-price">$9.99</span>
+                            <span class="price annual-price" style="display: none;">$99.99</span>
+                            <span class="period">/month</span>
+                        </div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>400 pages per month</li>
+                        <li>Advanced PDF conversion</li>
+                        <li>CSV & Excel export</li>
+                        <li>Email support</li>
+                        <li>Basic analytics</li>
+                    </ul>
+                    <button class="btn-primary full-width" onclick="app.handlePlanPurchase('starter')">Choose Starter</button>
+                </div>
+                
+                <!-- Professional Plan -->
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3>Professional</h3>
+                        <div class="plan-price">
+                            <span class="price monthly-price">$19.99</span>
+                            <span class="price annual-price" style="display: none;">$199.99</span>
+                            <span class="period">/month</span>
+                        </div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>1000 pages per month</li>
+                        <li>Premium PDF conversion</li>
+                        <li>All export formats</li>
+                        <li>Priority support</li>
+                        <li>Advanced analytics</li>
+                        <li>API access</li>
+                    </ul>
+                    <button class="btn-primary full-width" onclick="app.handlePlanPurchase('professional')">Choose Professional</button>
+                </div>
+                
+                <!-- Enterprise Plan -->
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3>Enterprise</h3>
+                        <div class="plan-price">
+                            <span class="price monthly-price">$49.99</span>
+                            <span class="price annual-price" style="display: none;">$499.99</span>
+                            <span class="period">/month</span>
+                        </div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>Unlimited pages</li>
+                        <li>Custom integrations</li>
+                        <li>Dedicated support</li>
+                        <li>SLA guarantee</li>
+                        <li>White-label options</li>
+                        <li>Custom training</li>
+                    </ul>
+                    <button class="btn-primary full-width" onclick="app.handlePlanPurchase('enterprise')">Contact Sales</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <span>SMART STATEMENT CONVERTER</span>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <a href="/privacy.html">Privacy Policy</a>
+                    <a href="/terms.html">Terms of Service</a>
+                    <a href="mailto:support@smartstatementconverter.com">Support</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Smart Statement Converter. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Login</h2>
+                <button class="modal-close" onclick="app.closeModal('loginModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn-primary full-width">Login</button>
+                </form>
+                <p class="auth-switch">
+                    Don't have an account? <a href="#" onclick="app.closeModal('loginModal'); app.showModal('registerModal');">Register here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="registerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Register</h2>
+                <button class="modal-close" onclick="app.closeModal('registerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerName">Name</label>
+                        <input type="text" id="registerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerEmail">Email</label>
+                        <input type="email" id="registerEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" required>
+                    </div>
+                    <button type="submit" class="btn-primary full-width">Register</button>
+                </form>
+                <p class="auth-switch">
+                    Already have an account? <a href="#" onclick="app.closeModal('registerModal'); app.showModal('loginModal');">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load modular scripts -->
+    <script src="src/client/auth/authManager.js"></script>
+    <script src="src/client/ui/uiManager.js"></script>
+    <script src="src/client/payment/paymentManager.js"></script>
+    <script src="src/client/file/fileManager.js"></script>
+    <script src="src/client/profile/profileManager.js"></script>
+    <script src="src/client/app.js"></script>
+
+    <script>
+        // Handle form submissions
+        document.addEventListener('DOMContentLoaded', function() {
+            // Login form
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('loginEmail').value;
+                    const password = document.getElementById('loginPassword').value;
+                    await app.handleLogin(email, password);
+                });
+            }
+
+            // Register form
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm) {
+                registerForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const name = document.getElementById('registerName').value;
+                    const email = document.getElementById('registerEmail').value;
+                    const password = document.getElementById('registerPassword').value;
+                    const confirmPassword = document.getElementById('confirmPassword').value;
+                    
+                    if (password !== confirmPassword) {
+                        app.showNotification('Passwords do not match', 'error');
+                        return;
+                    }
+                    
+                    await app.handleRegister(email, password, name);
+                });
+            }
+
+            // Billing toggle
+            const toggleBtns = document.querySelectorAll('.toggle-btn');
+            toggleBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    toggleBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const plan = btn.dataset.plan;
+                    const monthlyPrices = document.querySelectorAll('.monthly-price');
+                    const annualPrices = document.querySelectorAll('.annual-price');
+                    
+                    if (plan === 'annual') {
+                        monthlyPrices.forEach(p => p.style.display = 'none');
+                        annualPrices.forEach(p => p.style.display = 'inline');
+                    } else {
+                        monthlyPrices.forEach(p => p.style.display = 'inline');
+                        annualPrices.forEach(p => p.style.display = 'none');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Smart Statement Converter</title>
+    <meta name="description" content="View and manage your conversion history">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4F46E5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Statement Converter">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.svg">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.svg">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <span>SMART STATEMENT CONVERTER</span>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/analytics.html" class="nav-link">Analytics</a>
+                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <div class="user-avatar" id="userAvatar"></div>
+                        <span class="user-name" id="userName"></span>
+                        <button class="btn-logout" onclick="app.logout()">Logout</button>
+                    </div>
+                    <div class="auth-buttons" id="authButtons">
+                        <a href="/api/login" class="nav-link">Login</a>
+                        <a href="/api/register" class="nav-link primary">Register</a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Profile Content -->
+    <main class="profile-main">
+        <div class="container">
+            <!-- Profile Header -->
+            <section class="profile-header">
+                <div class="profile-info">
+                    <div class="profile-avatar" id="profileAvatar"></div>
+                    <div class="profile-details">
+                        <h1 class="profile-name" id="profileName">Welcome</h1>
+                        <p class="profile-email" id="profileEmail">Loading...</p>
+                        <div class="profile-stats">
+                            <div class="stat">
+                                <span class="stat-number" id="totalConversions">0</span>
+                                <span class="stat-label">Total Conversions</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number" id="totalTransactions">0</span>
+                                <span class="stat-label">Total Transactions</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profile-actions">
+                    <a href="/" class="convert-pdf-btn">
+                        <span class="btn-icon">📄</span>
+                        Convert New PDF
+                    </a>
+                </div>
+            </section>
+
+            <!-- Membership Details -->
+            <section class="membership-section">
+                <div class="section-header">
+                    <h2>💎 Membership Details</h2>
+                </div>
+                <div class="membership-card" id="membershipCard">
+                    <div class="membership-info">
+                        <div class="plan-badge" id="planBadge">
+                            <span class="plan-name" id="planName">Free Plan</span>
+                            <span class="plan-status" id="planStatus">Active</span>
+                        </div>
+                        <div class="plan-details">
+                            <div class="plan-feature">
+                                <span class="feature-icon">📄</span>
+                                <span class="feature-text" id="planLimits">5 pages per day</span>
+                            </div>
+                            <div class="plan-feature">
+                                <span class="feature-icon">📅</span>
+                                <span class="feature-text" id="billingCycle">No billing cycle</span>
+                            </div>
+                            <div class="plan-feature">
+                                <span class="feature-icon">🔄</span>
+                                <span class="feature-text" id="renewalDate">No renewal date</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="membership-actions" id="membershipActions">
+                        <button class="btn-secondary" onclick="app.upgradePlan()" id="upgradeBtn">Upgrade Plan</button>
+                        <button class="btn-danger" onclick="app.manageSubscription()" id="manageBtn" style="display: none;">Manage Subscription</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Conversion History -->
+            <section class="conversion-history">
+                <div class="section-header">
+                    <h2>📚 Conversion History</h2>
+                    <div class="history-controls">
+                        <button class="btn-secondary" onclick="app.refreshHistory()">Refresh</button>
+                        <button class="btn-danger" onclick="app.clearAllHistory()" id="clearAllBtn" style="display: none;">Clear All</button>
+                    </div>
+                </div>
+                
+                <div class="history-content">
+                    <div class="loading" id="historyLoading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Loading your conversion history...</p>
+                    </div>
+                    
+                    <div class="empty-state" id="emptyHistory" style="display: none;">
+                        <div class="empty-icon">📄</div>
+                        <h3>No conversions yet</h3>
+                        <p>Start by uploading your first PDF bank statement</p>
+                        <a href="/" class="btn-primary">Convert PDF</a>
+                    </div>
+                    
+                    <div class="history-grid" id="historyGrid">
+                        <!-- History items will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <span>SMART STATEMENT CONVERTER</span>
+                    </div>
+                </div>
+                <div class="footer-links">
+                    <a href="/privacy.html">Privacy Policy</a>
+                    <a href="/terms.html">Terms of Service</a>
+                    <a href="mailto:support@smartstatementconverter.com">Support</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Smart Statement Converter. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/ui-utils.js?v=20250116-2"></script>
+    <script src="js/smart-features.js?v=20250116-2"></script>
+    <script src="js/error-handler.js?v=20250116-1"></script>
+    <script src="js/progress-tracker.js?v=20250116-1"></script>
+    <script src="js/analytics.js?v=20250116-1"></script>
+    <script src="script.js?v=20250116-2"></script>
+    
+    <script>
+        // Initialize profile page when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.app && typeof window.app.initializeProfilePage === 'function') {
+                window.app.initializeProfilePage();
+            }
+        });
+    </script>
+</body>
+</html>

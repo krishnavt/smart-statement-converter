@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Smart Statement Converter</title>
+    <meta name="description" content="View detailed analytics and insights for your conversions">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4F46E5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Analytics">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.svg">
+    
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .analytics-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .analytics-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .analytics-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+        }
+        
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #1f2937;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .chart-container {
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        
+        .bank-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .bank-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .bank-item:last-child {
+            border-bottom: none;
+        }
+        
+        .bank-name {
+            font-weight: 500;
+        }
+        
+        .bank-count {
+            background: #4F46E5;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background: #4F46E5;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #3730a3;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <span>SMART STATEMENT CONVERTER</span>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/profile.html" class="nav-link">Profile</a>
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <div class="user-avatar" id="userAvatar"></div>
+                        <span class="user-name" id="userName"></span>
+                        <button class="btn-logout" onclick="app.logout()">Logout</button>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Analytics Content -->
+    <main class="analytics-container">
+        <div class="analytics-header">
+            <h1>Analytics Dashboard</h1>
+            <p>Track your conversion performance and insights</p>
+        </div>
+
+        <div id="analyticsContent">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading analytics data...</p>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" onclick="exportAnalytics()">Export Data</button>
+            <button class="btn btn-secondary" onclick="clearAnalytics()">Clear Data</button>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/ui-utils.js?v=20250116-2"></script>
+    <script src="js/smart-features.js?v=20250116-2"></script>
+    <script src="js/error-handler.js?v=20250116-1"></script>
+    <script src="js/progress-tracker.js?v=20250116-1"></script>
+    <script src="js/analytics.js?v=20250116-1"></script>
+    <script src="script.js?v=20250116-2"></script>
+    
+    <script>
+        let analytics;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize analytics
+            analytics = new Analytics();
+            
+            // Load and display analytics data
+            loadAnalyticsData();
+        });
+        
+        function loadAnalyticsData() {
+            const content = document.getElementById('analyticsContent');
+            
+            try {
+                const data = analytics.getDashboardData();
+                content.innerHTML = renderAnalyticsDashboard(data);
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="error">
+                        <p>Error loading analytics data: ${error.message}</p>
+                        <button class="btn btn-primary" onclick="loadAnalyticsData()">Retry</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderAnalyticsDashboard(data) {
+            return `
+                <div class="analytics-grid">
+                    <!-- Overview Card -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Overview</h3>
+                        <div class="metric">
+                            <span class="metric-label">Total Conversions</span>
+                            <span class="metric-value">${data.overview.totalConversions}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Pages</span>
+                            <span class="metric-value">${data.overview.totalPages}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Transactions</span>
+                            <span class="metric-value">${data.overview.totalTransactions}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Session Duration</span>
+                            <span class="metric-value">${data.overview.sessionDuration}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Page Views</span>
+                            <span class="metric-value">${data.overview.pageViews}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Performance Card -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Performance</h3>
+                        <div class="metric">
+                            <span class="metric-label">Avg Processing Time</span>
+                            <span class="metric-value">${data.performance.avgProcessingTime}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Avg File Size</span>
+                            <span class="metric-value">${data.performance.avgFileSize}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Success Rate</span>
+                            <span class="metric-value">${data.performance.successRate}%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Banks Detected Card -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Banks Detected</h3>
+                        <div class="bank-list">
+                            ${Object.keys(data.banks).length > 0 ? 
+                                Object.entries(data.banks).map(([bank, count]) => `
+                                    <div class="bank-item">
+                                        <span class="bank-name">${bank}</span>
+                                        <span class="bank-count">${count}</span>
+                                    </div>
+                                `).join('') :
+                                '<p style="text-align: center; color: #6b7280; padding: 2rem;">No banks detected yet</p>'
+                            }
+                        </div>
+                    </div>
+                    
+                    <!-- Features Used Card -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Features Used</h3>
+                        <div class="bank-list">
+                            ${Object.keys(data.features).length > 0 ? 
+                                Object.entries(data.features).map(([feature, count]) => `
+                                    <div class="bank-item">
+                                        <span class="bank-name">${feature.replace(/_/g, ' ')}</span>
+                                        <span class="bank-count">${count}</span>
+                                    </div>
+                                `).join('') :
+                                '<p style="text-align: center; color: #6b7280; padding: 2rem;">No features used yet</p>'
+                            }
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Errors Card -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Recent Errors</h3>
+                        <div class="bank-list">
+                            ${data.recentErrors.length > 0 ? 
+                                data.recentErrors.map(error => `
+                                    <div class="bank-item">
+                                        <span class="bank-name">${error.type || 'Unknown'}</span>
+                                        <span class="bank-count">${new Date(error.timestamp).toLocaleDateString()}</span>
+                                    </div>
+                                `).join('') :
+                                '<p style="text-align: center; color: #10B981; padding: 2rem;">No errors! 🎉</p>'
+                            }
+                        </div>
+                    </div>
+                    
+                    <!-- Charts Card -->
+                    <div class="analytics-card">
+                        <h3 class="card-title">Conversion Trends</h3>
+                        <div class="chart-container">
+                            <p style="color: #6b7280;">Chart visualization coming soon...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function exportAnalytics() {
+            try {
+                analytics.exportData();
+                if (window.app && window.app.uiUtils) {
+                    window.app.uiUtils.showToast('Analytics data exported successfully!', 'success');
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                if (window.app && window.app.uiUtils) {
+                    window.app.uiUtils.showToast('Export failed: ' + error.message, 'error');
+                }
+            }
+        }
+        
+        function clearAnalytics() {
+            if (confirm('Are you sure you want to clear all analytics data? This action cannot be undone.')) {
+                try {
+                    analytics.clearData();
+                    loadAnalyticsData();
+                    if (window.app && window.app.uiUtils) {
+                        window.app.uiUtils.showToast('Analytics data cleared successfully!', 'success');
+                    }
+                } catch (error) {
+                    console.error('Clear error:', error);
+                    if (window.app && window.app.uiUtils) {
+                        window.app.uiUtils.showToast('Clear failed: ' + error.message, 'error');
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

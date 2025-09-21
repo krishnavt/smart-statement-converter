@@ -16,6 +16,8 @@ pids
 .env.development.local
 .env.test.local
 .env.production.local
+.env.backup
+.env.backup-*
 
 # MacOS
 .DS_Store
@@ -32,6 +34,14 @@ Desktop.ini
 *.swo
 *~
 
+# Documentation
+*.md
+README*
+CHANGELOG*
+CONTRIBUTING*
+LICENSE*
+SECURITY*
+
 # Logs
 logs
 *.log
@@ -46,3 +56,24 @@ build/
 # Upload directories
 uploads/
 temp/
+
+# Test files
+test-*.js
+test-*.pdf
+test-*.csv
+create-test-*.js
+
+# Old migration files
+*-migration.sql
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Vercel
+.vercel
+
+# Environment files
+.env.local
+.env.production

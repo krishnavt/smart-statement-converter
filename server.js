@@ -1,15 +1,121 @@
+require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_your_key_here');
+// Initialize Stripe only if valid key is provided
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_your_key_here') {
+    stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    console.log('✅ Stripe initialized with valid API key');
+} else {
+    console.log('⚠️ Stripe not configured - payment features disabled');
+}
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs-extra');
 const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+const { db } = require('./lib/supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Anonymous user UUID for fallback
+const ANONYMOUS_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+// File validation function
+function validateUploadedFile(file) {
+    // Check if file exists
+    if (!file) {
+        return {
+            isValid: false,
+            error: 'No file provided',
+            code: 'NO_FILE',
+            message: 'Please select a file to upload'
+        };
+    }
+
+    // Check file type
+    if (file.mimetype !== 'application/pdf') {
+        return {
+            isValid: false,
+            error: 'Invalid file type',
+            code: 'INVALID_TYPE',
+            message: 'Only PDF files are allowed'
+        };
+    }
+
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        return {
+            isValid: false,
+            error: 'File too large',
+            code: 'FILE_TOO_LARGE',
+            message: `File size (${sizeMB}MB) exceeds the 10MB limit`
+        };
+    }
+
+    // Check if file is empty
+    if (file.size === 0) {
+        return {
+            isValid: false,
+            error: 'Empty file',
+            code: 'EMPTY_FILE',
+            message: 'The uploaded file is empty'
+        };
+    }
+
+    // Check file name
+    if (!file.originalname || file.originalname.trim() === '') {
+        return {
+            isValid: false,
+            error: 'Invalid filename',
+            code: 'INVALID_FILENAME',
+            message: 'File has no name'
+        };
+    }
+
+    // Check for suspicious file names
+    const suspiciousPatterns = [
+        /\.exe$/i, /\.bat$/i, /\.cmd$/i, /\.scr$/i, /\.pif$/i,
+        /\.com$/i, /\.vbs$/i, /\.js$/i, /\.jar$/i, /\.app$/i
+    ];
+    
+    for (const pattern of suspiciousPatterns) {
+        if (pattern.test(file.originalname)) {
+            return {
+                isValid: false,
+                error: 'Suspicious file type',
+                code: 'SUSPICIOUS_FILE',
+                message: 'File type not allowed for security reasons'
+            };
+        }
+    }
+
+    // Check for very long file names
+    if (file.originalname.length > 255) {
+        return {
+            isValid: false,
+            error: 'Filename too long',
+            code: 'FILENAME_TOO_LONG',
+            message: 'File name is too long (max 255 characters)'
+        };
+    }
+
+    // Check for special characters in filename
+    const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
+    if (dangerousChars.test(file.originalname)) {
+        return {
+            isValid: false,
+            error: 'Invalid characters in filename',
+            code: 'INVALID_CHARACTERS',
+            message: 'File name contains invalid characters'
+        };
+    }
+
+    return { isValid: true, error: null, code: null, message: null };
+}
 
 // Middleware
 app.use(cors());
@@ -18,6 +124,9 @@ app.use(express.static('.')); // Serve static files from current directory
 
 // Ensure upload directories exist (only in local development)
 const uploadDir = './uploads';
+
+// Ensure directories exist
+fs.ensureDirSync(uploadDir);
 const tempDir = './temp';
 if (!process.env.VERCEL) {
     fs.ensureDirSync(uploadDir);
@@ -39,6 +148,55 @@ const upload = multer({
         }
     }
 });
+
+// Conversion history helper functions using Supabase
+async function saveConversionHistory(userId, conversionData) {
+    const conversion = await db.createConversion({
+        userId: userId,
+        filename: conversionData.filename,
+        originalFilename: conversionData.originalFilename,
+        csvData: conversionData.csvData,
+        transactionCount: conversionData.transactionCount,
+        fileSize: conversionData.fileSize
+    });
+    
+    return {
+        id: conversion.id,
+        timestamp: conversion.created_at,
+        filename: conversion.filename,
+        originalFilename: conversion.original_filename,
+        csvData: conversion.csv_data,
+        transactionCount: conversion.transaction_count,
+        fileSize: conversion.file_size
+    };
+}
+
+async function getConversionHistory(userId) {
+    const conversions = await db.getConversionsByUserId(userId);
+    return conversions.map(conv => ({
+        id: conv.id,
+        timestamp: conv.created_at,
+        filename: conv.original_filename,
+        transactionCount: conv.transaction_count,
+        fileSize: conv.file_size
+    }));
+}
+
+async function getConversionById(userId, conversionId) {
+    const conversion = await db.getConversionById(conversionId, userId);
+    if (!conversion) return null;
+    
+    return {
+        id: conversion.id,
+        timestamp: conversion.created_at,
+        filename: conversion.filename,
+        originalFilename: conversion.original_filename,
+        csvData: conversion.csv_data,
+        transactionCount: conversion.transaction_count,
+        fileSize: conversion.file_size
+    };
+}
+
 
 // Bank statement parsing patterns
 const BANK_PATTERNS = {
@@ -81,88 +239,183 @@ function parseBankStatement(text) {
     console.log(`Processing ${lines.length} lines from PDF`);
     
     const transactions = [];
-    let currentBalance = 0;
     
+    // Find the transaction section by looking for common patterns
+    let transactionStartIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+        const line = lines[i].toLowerCase();
         
-        // Try to extract date
-        const dateMatch = BANK_PATTERNS.datePatterns.find(pattern => {
-            pattern.lastIndex = 0; // Reset regex
-            return pattern.test(line);
-        });
+        // Look for transaction table headers
+        if (line.includes('date') && line.includes('description') && line.includes('amount')) {
+            transactionStartIndex = i + 1; // Start after the header
+            break;
+        }
         
-        if (dateMatch) {
-            dateMatch.lastIndex = 0;
-            const dateResult = dateMatch.exec(line);
-            
-            if (dateResult) {
-                const date = dateResult[1];
-                
-                // Look for amounts in the same line or next few lines
-                const searchLines = lines.slice(i, Math.min(i + 3, lines.length));
-                const fullLine = searchLines.join(' ');
-                
-                // Extract amounts
-                const amounts = [];
-                BANK_PATTERNS.amountPatterns.forEach(pattern => {
-                    pattern.lastIndex = 0;
-                    let match;
-                    while ((match = pattern.exec(fullLine)) !== null) {
-                        const amount = parseFloat(match[1].replace(/,/g, ''));
-                        if (!isNaN(amount) && Math.abs(amount) > 0.01) {
-                            amounts.push(amount);
-                        }
-                    }
-                });
-                
-                if (amounts.length > 0) {
-                    // Determine transaction type
-                    const lineText = fullLine.toLowerCase();
-                    let transactionType = 'Unknown';
-                    
-                    for (const type of BANK_PATTERNS.transactionTypes) {
-                        if (lineText.includes(type.toLowerCase())) {
-                            transactionType = type.charAt(0).toUpperCase() + type.slice(1);
-                            break;
-                        }
-                    }
-                    
-                    // Extract description (remove date and amounts)
-                    let description = fullLine
-                        .replace(dateResult[0], '')
-                        .replace(/[\$]?[+-]?\d{1,3}(?:,\d{3})*\.?\d{0,2}/g, '')
-                        .trim();
-                    
-                    if (!description) {
-                        description = `${transactionType} Transaction`;
-                    }
-                    
-                    // Determine transaction amount (usually the first amount)
-                    const transactionAmount = amounts[0];
-                    
-                    // Calculate balance (this is simplified - real implementation would need more logic)
-                    currentBalance += transactionAmount;
-                    const balance = amounts.length > 1 ? amounts[amounts.length - 1] : currentBalance;
-                    
-                    transactions.push({
-                        date: formatDate(date),
-                        type: transactionType,
-                        description: description.substring(0, 100), // Limit description length
-                        amount: transactionAmount.toFixed(2),
-                        balance: balance.toFixed(2)
-                    });
+        // Look for patterns that indicate start of transaction list
+        if (line.match(/^\w{3}\s+\d{1,2},?\s+\d{4}/)) {
+            // Check if this looks like a real transaction line (has amount and reasonable description)
+            if (line.includes('$') && line.match(/\d+\.\d{2}/)) {
+                // Additional validation - make sure it's not account info
+                if (!line.includes('account') && !line.includes('balance') && !line.includes('interest rate') && 
+                    !line.includes('member since') && !line.includes('statement period') && 
+                    !line.includes('participating banks') && !line.includes('breakdown')) {
+                    transactionStartIndex = i;
+                    break;
                 }
             }
         }
     }
     
-    // If no transactions found, create sample data
-    if (transactions.length === 0) {
+    if (transactionStartIndex === -1) {
+        console.log('Could not find transaction section, using sample data');
         return createSampleTransactions();
     }
     
-    return transactions.slice(0, 50); // Limit to 50 transactions
+    console.log(`Found transaction section starting at line ${transactionStartIndex}`);
+    
+    // Parse transactions from the identified section
+    for (let i = transactionStartIndex; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Skip header lines
+        if (line.toLowerCase().includes('date') && line.toLowerCase().includes('description')) {
+            continue;
+        }
+        
+        // Look for date patterns that indicate a transaction
+        let dateMatch = null;
+        let dateResult = null;
+        
+        for (const pattern of BANK_PATTERNS.datePatterns) {
+            pattern.lastIndex = 0;
+            const match = pattern.exec(line);
+            if (match) {
+                dateMatch = pattern;
+                dateResult = match;
+                break;
+            }
+        }
+        
+        if (dateResult) {
+            const date = dateResult[1];
+            
+            // Look for amounts in the same line or next few lines
+            const searchLines = lines.slice(i, Math.min(i + 3, lines.length));
+            const fullLine = searchLines.join(' ');
+            
+            // Look for dollar amounts with proper formatting
+            const dollarAmountPattern = /\$?([+-]?\d{1,3}(?:,\d{3})*\.\d{2})/g;
+            const amounts = [];
+            let match;
+            while ((match = dollarAmountPattern.exec(fullLine)) !== null) {
+                const amountStr = match[1].replace(/,/g, '');
+                const amount = parseFloat(amountStr);
+                if (!isNaN(amount) && Math.abs(amount) > 0.01 && Math.abs(amount) < 100000) {
+                    amounts.push(amount);
+                }
+            }
+            
+            if (amounts.length > 0) {
+                // Determine transaction type - check for specific patterns first
+                const lineText = fullLine.toLowerCase();
+                let transactionType = 'Transaction';
+                
+                // Check for specific transaction type patterns (case-insensitive)
+                if (lineText.includes('direct payment')) {
+                    transactionType = 'Direct Payment';
+                } else if (lineText.includes('direct deposit')) {
+                    transactionType = 'Direct Deposit';
+                } else if (lineText.includes('interest earned') || lineText.includes('interest earned')) {
+                    transactionType = 'Interest Earned';
+                } else if (lineText.includes('withdrawal') && lineText.includes('savings')) {
+                    transactionType = 'Transfer to Savings';
+                } else if (lineText.includes('deposit') && lineText.includes('savings')) {
+                    transactionType = 'Transfer from Savings';
+                } else if (lineText.includes('deposit') || lineText.includes('credit')) {
+                    transactionType = 'Deposit';
+                } else if (lineText.includes('withdrawal') || lineText.includes('debit')) {
+                    transactionType = 'Withdrawal';
+                } else if (lineText.includes('transfer')) {
+                    transactionType = 'Transfer';
+                } else if (lineText.includes('payment') || lineText.includes('pay')) {
+                    transactionType = 'Payment';
+                } else if (lineText.includes('fee') || lineText.includes('charge')) {
+                    transactionType = 'Fee';
+                } else if (lineText.includes('interest')) {
+                    transactionType = 'Interest';
+                } else if (lineText.includes('check')) {
+                    transactionType = 'Check';
+                } else if (lineText.includes('atm')) {
+                    transactionType = 'ATM';
+                }
+                
+                // Extract description - remove transaction type and clean up
+                let description = fullLine
+                    .replace(dateResult[0], '')
+                    .replace(/\$?[+-]?\d{1,3}(?:,\d{3})*\.\d{2}/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                
+                // Remove transaction type from description
+                const typeToRemove = transactionType.toLowerCase();
+                description = description.replace(new RegExp(typeToRemove, 'gi'), '').trim();
+                
+                // Remove common transaction ID patterns
+                description = description.replace(/transaction id:\s*[\w-]+/gi, '').trim();
+                description = description.replace(/id:\s*[\w-]+/gi, '').trim();
+                
+                // Clean up description
+                description = description.replace(/^\W+|\W+$/g, '');
+                description = description.replace(/\s+/g, ' ').trim();
+                
+                if (!description || description.length < 3) {
+                    description = `${transactionType} Transaction`;
+                } else {
+                    // Capitalize first letter
+                    description = description.charAt(0).toUpperCase() + description.slice(1);
+                }
+                
+                // Use the first reasonable amount as transaction amount
+                const transactionAmount = amounts[0];
+                const balance = amounts.length > 1 ? amounts[amounts.length - 1] : amounts[0];
+                
+                // Only add if this looks like a real transaction
+                if (Math.abs(transactionAmount) > 0.01) {
+                    // Additional validation - reject non-transaction descriptions
+                    const invalidDescriptions = [
+                        'account', 'balance', 'interest rate', 'member since', 'statement period',
+                        'participating banks', 'breakdown', 'moved balances', 'current balance',
+                        'beginning balance', 'annual percentage', 'year-to-date', 'current interest',
+                        'monthly interest', 'primary account', 'checking account'
+                    ];
+                    
+                    const isInvalidDescription = invalidDescriptions.some(invalid => 
+                        description.toLowerCase().includes(invalid)
+                    );
+                    
+                    if (!isInvalidDescription && description.length > 2) {
+                        transactions.push({
+                            date: formatDate(date),
+                            type: transactionType,
+                            description: description.substring(0, 100),
+                            amount: transactionAmount.toFixed(2),
+                            balance: balance.toFixed(2)
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    console.log(`Found ${transactions.length} transactions from PDF parsing`);
+    
+    // If we found some transactions, return them; otherwise try sample data
+    if (transactions.length > 0) {
+        return transactions.slice(0, 50); // Limit to 50 transactions
+    } else {
+        console.log('No transactions found, using sample data');
+        return createSampleTransactions();
+    }
 }
 
 function formatDate(dateStr) {
@@ -240,49 +493,180 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Smart Statement Converter API is running' });
 });
 
+// Debug endpoint to check environment variables
+app.get('/api/debug', (req, res) => {
+    res.json({
+        supabaseUrl: process.env.SUPABASE_URL,
+        supabaseKey: process.env.SUPABASE_ANON_KEY ? 'Set' : 'Not set',
+        nodeEnv: process.env.NODE_ENV
+    });
+});
+
+// Conversion history endpoints
+app.get('/api/history', async (req, res) => {
+    try {
+        const userId = req.query.userId || ANONYMOUS_USER_ID;
+        console.log('🔍 Fetching history for userId:', userId);
+        const history = await getConversionHistory(userId);
+        console.log('📊 History result:', history);
+        
+        res.json({
+            success: true,
+            history: history
+        });
+    } catch (error) {
+        console.error('Error fetching conversion history:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch conversion history' });
+    }
+});
+
+app.get('/api/history/:conversionId', async (req, res) => {
+    try {
+        const userId = req.query.userId || ANONYMOUS_USER_ID;
+        const conversionId = req.params.conversionId;
+        
+        const conversion = await getConversionById(userId, conversionId);
+        
+        if (!conversion) {
+            return res.status(404).json({ success: false, message: 'Conversion not found' });
+        }
+        
+        res.json({
+            success: true,
+            conversion: {
+                id: conversion.id,
+                timestamp: conversion.timestamp,
+                filename: conversion.originalFilename,
+                csvData: conversion.csvData,
+                transactionCount: conversion.transactionCount,
+                fileSize: conversion.fileSize
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching conversion details:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch conversion details' });
+    }
+});
+
+// Delete conversion
+app.delete('/api/history/:conversionId', async (req, res) => {
+    try {
+        const userId = req.query.userId || ANONYMOUS_USER_ID;
+        const conversionId = req.params.conversionId;
+        
+        const success = await db.deleteConversion(conversionId, userId);
+        
+        if (!success) {
+            return res.status(404).json({ success: false, message: 'Conversion not found' });
+        }
+        
+        res.json({ success: true, message: 'Conversion deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting conversion:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete conversion' });
+    }
+});
+
 // PDF upload and conversion
 app.post('/api/convert', upload.single('pdf'), async (req, res) => {
     try {
         console.log('=== PDF Conversion Request Started ===');
         
+        // Validate request
         if (!req.file) {
             console.log('Error: No file uploaded');
-            return res.status(400).json({ error: 'No PDF file uploaded' });
+            return res.status(400).json({ 
+                error: 'No PDF file uploaded',
+                code: 'NO_FILE',
+                message: 'Please select a PDF file to upload'
+            });
         }
         
         console.log('Processing PDF:', req.file.originalname, 'Size:', req.file.size, 'bytes');
         
-        // Check file size (10MB limit)
-        if (req.file.size > 10 * 1024 * 1024) {
-            console.log('Error: File too large');
-            return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
+        // Enhanced file validation
+        const validation = validateUploadedFile(req.file);
+        if (!validation.isValid) {
+            console.log('File validation failed:', validation.error);
+            return res.status(400).json({ 
+                error: validation.error,
+                code: validation.code,
+                message: validation.message
+            });
         }
         
-        // Parse PDF with timeout
+        // Parse PDF with enhanced error handling
         console.log('Starting PDF parsing...');
         let data;
         try {
             data = await Promise.race([
                 pdfParse(req.file.buffer),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('PDF parsing timeout')), 25000)
+                    setTimeout(() => reject(new Error('PDF parsing timeout after 30 seconds')), 30000)
                 )
             ]);
+            
+            if (!data) {
+                throw new Error('PDF parsing returned no data');
+            }
+            
             console.log('PDF text extracted successfully, length:', data.text.length);
+            console.log('First 500 characters of extracted text:');
+            console.log(data.text.substring(0, 500));
+            
         } catch (pdfError) {
             console.error('PDF parsing failed:', pdfError.message);
+            
+            // Provide specific error messages based on error type
+            let errorMessage = 'Failed to parse PDF';
+            let errorCode = 'PDF_PARSE_ERROR';
+            let userMessage = 'The PDF could not be processed';
+            
+            if (pdfError.message.includes('timeout')) {
+                errorMessage = 'PDF parsing timeout';
+                errorCode = 'PDF_TIMEOUT';
+                userMessage = 'The PDF is too complex or large. Please try a smaller file.';
+            } else if (pdfError.message.includes('password') || pdfError.message.includes('encrypted')) {
+                errorMessage = 'Password protected PDF';
+                errorCode = 'PDF_PASSWORD_PROTECTED';
+                userMessage = 'The PDF is password protected. Please remove the password and try again.';
+            } else if (pdfError.message.includes('corrupted') || pdfError.message.includes('invalid')) {
+                errorMessage = 'Corrupted PDF';
+                errorCode = 'PDF_CORRUPTED';
+                userMessage = 'The PDF appears to be corrupted. Please try a different file.';
+            } else if (pdfError.message.includes('XRef') || pdfError.message.includes('bad XRef')) {
+                errorMessage = 'PDF structure error';
+                errorCode = 'PDF_STRUCTURE_ERROR';
+                userMessage = 'The PDF has structural issues. Please try a different file.';
+            }
+            
             return res.status(500).json({ 
-                error: 'Failed to parse PDF',
-                message: pdfError.message,
-                details: 'The PDF might be corrupted, password protected, or contain only images'
+                error: errorMessage,
+                code: errorCode,
+                message: userMessage,
+                details: pdfError.message
             });
         }
         
+        // Validate extracted text
         if (!data.text || data.text.length === 0) {
             console.log('Error: No text extracted from PDF');
             return res.status(400).json({ 
                 error: 'No text found in PDF',
-                message: 'The PDF appears to contain only images or is password protected'
+                code: 'NO_TEXT_EXTRACTED',
+                message: 'The PDF appears to contain only images or is password protected. Please ensure the PDF contains selectable text.',
+                details: 'Try using a PDF with text content rather than scanned images'
+            });
+        }
+        
+        // Check if text is too short (likely not a bank statement)
+        if (data.text.length < 100) {
+            console.log('Warning: Very short text extracted:', data.text.length, 'characters');
+            return res.status(400).json({ 
+                error: 'Insufficient text content',
+                code: 'INSUFFICIENT_TEXT',
+                message: 'The PDF contains very little text. Please ensure you are uploading a bank statement with readable text.',
+                details: `Only ${data.text.length} characters were extracted`
             });
         }
         
@@ -290,6 +674,8 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
         console.log('Parsing bank statement...');
         const transactions = parseBankStatement(data.text);
         console.log('Parsed transactions:', transactions.length);
+        console.log('First few transactions:');
+        console.log(JSON.stringify(transactions.slice(0, 5), null, 2));
         
         // Convert to CSV
         console.log('Converting to CSV...');
@@ -299,6 +685,21 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
         const originalName = req.file.originalname.replace('.pdf', '');
         const filename = `${originalName}_converted.csv`;
         
+        // Save conversion to history
+        const userId = req.body.userId || ANONYMOUS_USER_ID;
+        const conversionData = {
+            filename: filename,
+            originalFilename: req.file.originalname,
+            csvData: csvData,
+            transactionCount: transactions.length,
+            fileSize: req.file.size
+        };
+        
+        const savedConversion = await saveConversionHistory(userId, conversionData);
+        if (savedConversion) {
+            console.log('Conversion saved to Supabase:', savedConversion.id);
+        }
+        
         console.log('=== PDF Conversion Completed Successfully ===');
         
         res.json({
@@ -306,7 +707,8 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
             filename: filename,
             csvData: csvData,
             transactionCount: transactions.length,
-            originalFilename: req.file.originalname
+            originalFilename: req.file.originalname,
+            conversionId: savedConversion ? savedConversion.id : null
         });
         
     } catch (error) {
@@ -326,6 +728,15 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
 // Stripe payment intents
 app.post('/api/create-payment-intent', async (req, res) => {
     try {
+        // Check if Stripe is configured
+        if (!stripe) {
+            return res.status(503).json({ 
+                error: 'Payment processing not available',
+                message: 'Stripe is not configured. Payment features are disabled in development mode.',
+                code: 'STRIPE_NOT_CONFIGURED'
+            });
+        }
+        
         const { plan, billingCycle } = req.body;
         
         // Map plans to product IDs
@@ -365,12 +776,20 @@ app.post('/api/create-payment-intent', async (req, res) => {
         
     } catch (error) {
         console.error('Stripe error:', error);
-        res.status(500).json({ error: 'Payment processing failed' });
+        res.status(500).json({ 
+            error: 'Payment processing failed',
+            message: error.message,
+            code: 'STRIPE_ERROR'
+        });
     }
 });
 
 // Stripe webhook handler
 app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), (req, res) => {
+    if (!stripe) {
+        return res.status(503).json({ error: 'Stripe not configured' });
+    }
+    
     const sig = req.headers['stripe-signature'];
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     
@@ -402,8 +821,13 @@ app.post('/api/stripe-webhook', express.raw({type: 'application/json'}), (req, r
 
 // Get Stripe publishable key
 app.get('/api/stripe-config', (req, res) => {
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+    const isConfigured = publishableKey && publishableKey !== 'pk_test_your_key_here';
+    
     res.json({
-        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_your_key_here'
+        publishableKey: isConfigured ? publishableKey : null,
+        isConfigured: isConfigured,
+        message: isConfigured ? 'Stripe is configured' : 'Stripe is not configured'
     });
 });
 
@@ -464,27 +888,15 @@ app.get('/api/login', (req, res) => {
                 <p class="hero-subtitle" style="margin-bottom: 2rem;">Sign in to your account to continue converting your bank statements.</p>
                 
                 <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
-                    <form id="loginForm" style="width: 100%;">
-                        <div class="form-group" style="margin-bottom: 1.5rem;">
-                            <label for="loginEmail" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Email Address</label>
-                            <input type="email" id="loginEmail" required style="width: 100%; padding: 0.75rem; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 1rem;" placeholder="Enter your email">
-                        </div>
-                        <div class="form-group" style="margin-bottom: 2rem;">
-                            <label for="loginPassword" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Password</label>
-                            <input type="password" id="loginPassword" required style="width: 100%; padding: 0.75rem; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 1rem;" placeholder="Enter your password">
-                        </div>
-                        
-                        <button type="submit" style="width: 100%; background: #4F46E5; color: white; padding: 0.875rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;">
-                            Sign In
-                        </button>
-                    </form>
-                    
-                    <div style="margin: 2rem 0; text-align: center; position: relative;">
-                        <span style="background: white; padding: 0 1rem; color: #6B7280; font-size: 0.9rem;">or</span>
-                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #E5E7EB; z-index: -1;"></div>
-                    </div>
-                    
                     <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
+                    
+                    <!-- Fallback for local development -->
+                    <div id="fallbackAuth" style="display: none; text-align: center;">
+                        <button onclick="handleMockLogin()" style="width: 100%; background: #4F46E5; color: white; padding: 0.875rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem;">
+                            Sign In (Demo Mode)
+                        </button>
+                        <p style="font-size: 0.9rem; color: #6B7280;">Google OAuth not configured for localhost</p>
+                    </div>
                     
                     <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
                         Don't have an account? <a href="/api/register" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Create one</a>
@@ -495,24 +907,85 @@ app.get('/api/login', (req, res) => {
     </section>
 
     <script>
+        // Check if user is already logged in
+        function checkAuthStatus() {
+            const userToken = localStorage.getItem('userToken');
+            const userData = localStorage.getItem('userData');
+            
+            if (userToken && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('User already logged in:', user);
+                    // Redirect to main page if already logged in
+                    window.location.href = '/';
+                    return;
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userData');
+                }
+            }
+        }
+        
+        // Check auth status on page load
+        checkAuthStatus();
+        
         // Load Google Client ID and initialize
         fetch('/api/auth/config')
             .then(response => response.json())
             .then(data => {
                 if (data.googleClientId && window.google) {
-                    window.google.accounts.id.initialize({
-                        client_id: data.googleClientId,
-                        callback: handleGoogleSignIn
-                    });
-                    
-                    window.google.accounts.id.renderButton(
-                        document.getElementById('googleSignInDiv'),
-                        { theme: 'outline', size: 'large', text: 'signin_with' }
-                    );
+                    try {
+                        window.google.accounts.id.initialize({
+                            client_id: data.googleClientId,
+                            callback: handleGoogleSignIn
+                        });
+                        
+                        window.google.accounts.id.renderButton(
+                            document.getElementById('googleSignInDiv'),
+                            { theme: 'outline', size: 'large', text: 'signin_with' }
+                        );
+                    } catch (error) {
+                        console.log('Google OAuth failed, showing fallback:', error);
+                        showFallbackAuth();
+                    }
+                } else {
+                    showFallbackAuth();
                 }
+            })
+            .catch(error => {
+                console.log('Failed to load auth config, showing fallback:', error);
+                showFallbackAuth();
             });
         
+        function showFallbackAuth() {
+            document.getElementById('googleSignInDiv').style.display = 'none';
+            document.getElementById('fallbackAuth').style.display = 'block';
+        }
+        
+        function handleMockLogin() {
+            const mockUser = {
+                id: '11111111-1111-1111-1111-111111111111',
+                email: 'demo@example.com',
+                name: 'Demo User',
+                picture: null,
+                provider: 'demo'
+            };
+            
+            localStorage.setItem('userToken', 'demo-jwt-token');
+            localStorage.setItem('userData', JSON.stringify(mockUser));
+            alert('Welcome Demo User! You are now signed in. Redirecting...');
+            window.location.href = '/';
+        }
+        
         function handleGoogleSignIn(response) {
+            // Show loading state
+            const button = document.querySelector('#googleSignInDiv button');
+            if (button) {
+                button.style.opacity = '0.6';
+                button.style.pointerEvents = 'none';
+            }
+            
             fetch('/api/auth/google', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -523,18 +996,468 @@ app.get('/api/login', (req, res) => {
                 if (data.success) {
                     localStorage.setItem('userToken', data.token);
                     localStorage.setItem('userData', JSON.stringify(data.user));
-                    alert('Welcome ' + data.user.name + '! Redirecting...');
+                    // Smooth redirect without popup
                     window.location.href = '/';
                 } else {
                     alert('Login failed: ' + data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Login error:', error);
+                alert('Login failed. Please try again.');
             });
         }
         
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Regular login not implemented yet. Please use Google Sign-In.');
-        });
+    </script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+});
+
+// Profile page
+app.get('/api/profile', (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Smart Statement Converter</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <a href="/" style="text-decoration: none; color: inherit;">
+                            <span>SMART STATEMENT CONVERTER</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="#pricing" class="nav-link">Pricing</a>
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <div class="user-avatar" id="userAvatar" style="width: 32px; height: 32px; border-radius: 50%; background: #4F46E5; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 0.875rem;">
+                        </div>
+                        <span id="userName" style="color: #374151; font-weight: 500;"></span>
+                        <button onclick="logout()" class="nav-link" style="background: none; border: none; color: #6B7280; cursor: pointer; padding: 0.5rem; border-radius: 4px; transition: background-color 0.2s;">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero" style="min-height: 80vh; display: flex; align-items: center;">
+        <div class="container">
+            <div class="hero-content" style="max-width: 1200px; margin: 0 auto;">
+                <h1 class="hero-title" style="font-size: 2.5rem; margin-bottom: 1rem;">My Profile</h1>
+                <p class="hero-subtitle" style="margin-bottom: 2rem;">Manage your account and view your conversion history.</p>
+                
+                <div class="profile-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
+                    <div class="profile-tabs" style="display: flex; border-bottom: 1px solid #e5e7eb; margin-bottom: 2rem;">
+                        <button onclick="showTab('history')" id="historyTab" class="tab-button active" style="padding: 1rem 2rem; border: none; background: #4F46E5; color: white; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: 600;">
+                            📚 Conversion History
+                        </button>
+                        <button onclick="showTab('settings')" id="settingsTab" class="tab-button" style="padding: 1rem 2rem; border: none; background: #f3f4f6; color: #374151; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: 600;">
+                            ⚙️ Settings
+                        </button>
+                    </div>
+                    
+                    <div id="historyContent" class="tab-content">
+                        <div class="history-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="margin: 0; color: #374151;">Your Conversions</h2>
+                            <button onclick="refreshHistory()" class="btn-secondary" style="padding: 0.5rem 1rem; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer;">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                        <div id="historyGrid" class="history-grid" style="display: grid; gap: 1rem;">
+                            <!-- History will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div id="settingsContent" class="tab-content" style="display: none;">
+                        <h2 style="margin: 0 0 1.5rem 0; color: #374151;">Account Settings</h2>
+                        <div class="settings-section" style="background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+                            <h3 style="margin: 0 0 1rem 0; color: #374151;">Account Information</h3>
+                            <p style="margin: 0; color: #6B7280;">Manage your account details and preferences.</p>
+                        </div>
+                        <div class="settings-section" style="background: #f8fafc; padding: 1.5rem; border-radius: 8px;">
+                            <h3 style="margin: 0 0 1rem 0; color: #374151;">Data Management</h3>
+                            <p style="margin: 0 0 1rem 0; color: #6B7280;">Control your conversion data and privacy settings.</p>
+                            <button onclick="exportAllData()" class="btn-secondary" style="padding: 0.5rem 1rem; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; margin-right: 1rem;">
+                                📥 Export All Data
+                            </button>
+                            <button onclick="clearAllData()" class="btn-danger" style="padding: 0.5rem 1rem; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                                🗑️ Clear All Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Check if user is logged in
+        function checkAuthStatus() {
+            const userToken = localStorage.getItem('userToken');
+            const userData = localStorage.getItem('userData');
+            
+            if (userToken && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('User logged in:', user);
+                    
+                    // Show user info
+                    document.getElementById('userInfo').style.display = 'flex';
+                    document.getElementById('userName').textContent = user.name || user.email;
+                    document.getElementById('userAvatar').textContent = (user.name || user.email).charAt(0).toUpperCase();
+                    
+                    // Load conversion history
+                    loadConversionHistory();
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userData');
+                    window.location.href = '/api/login';
+                }
+            } else {
+                window.location.href = '/api/login';
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userData');
+            window.location.href = '/';
+        }
+        
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.style.background = '#f3f4f6';
+                button.style.color = '#374151';
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + 'Content').style.display = 'block';
+            
+            // Add active class to selected tab
+            const activeTab = document.getElementById(tabName + 'Tab');
+            activeTab.style.background = '#4F46E5';
+            activeTab.style.color = 'white';
+        }
+        
+        async function loadConversionHistory() {
+            try {
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                const userId = userData ? userData.id : ANONYMOUS_USER_ID;
+                
+                const response = await fetch(\`/api/history?userId=\${userId}\`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayConversionHistory(data.history);
+                } else {
+                    console.error('Failed to load conversion history:', data.message);
+                }
+            } catch (error) {
+                console.error('Error loading conversion history:', error);
+            }
+        }
+        
+        function displayConversionHistory(history) {
+            const historyGrid = document.getElementById('historyGrid');
+            
+            if (history.length === 0) {
+                historyGrid.innerHTML = \`
+                    <div class="no-history" style="text-align: center; padding: 3rem; color: #6B7280; grid-column: 1 / -1;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+                        <h3 style="margin: 0 0 0.5rem 0; color: #374151;">No conversions yet</h3>
+                        <p style="margin: 0;">Upload your first PDF to get started!</p>
+                        <a href="/" style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #4F46E5; color: white; text-decoration: none; border-radius: 6px;">
+                            Upload PDF
+                        </a>
+                    </div>
+                \`;
+            } else {
+                historyGrid.innerHTML = history.map(conv => \`
+                    <div class="history-item" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: box-shadow 0.2s;">
+                        <div class="history-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h4 style="margin: 0; color: #374151; font-size: 1.125rem;">\${conv.filename}</h4>
+                            <span style="color: #6B7280; font-size: 0.875rem;">\${new Date(conv.timestamp).toLocaleDateString()}</span>
+                        </div>
+                        <div class="history-details" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; font-size: 0.875rem; color: #6B7280;">
+                            <span>📊 \${conv.transactionCount} transactions</span>
+                            <span>📁 \${(conv.fileSize / 1024).toFixed(1)} KB</span>
+                        </div>
+                        <div class="history-actions" style="display: flex; gap: 0.75rem;">
+                            <button onclick="viewConversion('\${conv.id}')" class="btn-primary" style="padding: 0.75rem 1.5rem; background: #4F46E5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500;">
+                                👁️ View Details
+                            </button>
+                            <button onclick="downloadHistoryCSV('\${conv.id}')" class="btn-secondary" style="padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 500;">
+                                📥 Download CSV
+                            </button>
+                        </div>
+                    </div>
+                \`).join('');
+            }
+        }
+        
+        async function viewConversion(conversionId) {
+            try {
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                const userId = userData ? userData.id : ANONYMOUS_USER_ID;
+                
+                const response = await fetch(\`/api/history/\${conversionId}?userId=\${userId}\`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Redirect to main page with conversion data
+                    window.location.href = \`/?conversionId=\${conversionId}\`;
+                } else {
+                    console.error('Failed to load conversion details:', data.message);
+                }
+            } catch (error) {
+                console.error('Error loading conversion details:', error);
+            }
+        }
+        
+        async function downloadHistoryCSV(conversionId) {
+            try {
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                const userId = userData ? userData.id : ANONYMOUS_USER_ID;
+                
+                const response = await fetch(\`/api/history/\${conversionId}?userId=\${userId}\`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Create and download CSV
+                    const blob = new Blob([data.conversion.csvData], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.conversion.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    console.error('Failed to load conversion for download:', data.message);
+                }
+            } catch (error) {
+                console.error('Error downloading conversion:', error);
+            }
+        }
+        
+        function refreshHistory() {
+            loadConversionHistory();
+        }
+        
+        function exportAllData() {
+            // TODO: Implement export all data functionality
+            alert('Export all data feature coming soon!');
+        }
+        
+        function clearAllData() {
+            if (confirm('Are you sure you want to clear all your conversion data? This action cannot be undone.')) {
+                // TODO: Implement clear all data functionality
+                alert('Clear all data feature coming soon!');
+            }
+        }
+        
+        // Initialize on page load
+        checkAuthStatus();
+    </script>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+});
+
+// Register page
+app.get('/api/register', (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart Statement Converter</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <a href="/" style="text-decoration: none; color: inherit;">
+                            <span>SMART STATEMENT CONVERTER</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/#pricing" class="nav-link">Pricing</a>
+                    <a href="/api/login" class="nav-link">Login</a>
+                    <a href="/api/register" class="nav-link primary">Register</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero" style="min-height: 80vh; display: flex; align-items: center;">
+        <div class="container">
+            <div class="hero-content" style="max-width: 400px; margin: 0 auto;">
+                <h1 class="hero-title" style="font-size: 2.5rem; margin-bottom: 1rem;">Create Account</h1>
+                <p class="hero-subtitle" style="margin-bottom: 2rem;">Sign up for a free account to get started with converting your bank statements.</p>
+                
+                <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
+                    <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
+                    
+                    <!-- Fallback for local development -->
+                    <div id="fallbackAuth" style="display: none; text-align: center;">
+                        <button onclick="handleMockRegister()" style="width: 100%; background: #4F46E5; color: white; padding: 0.875rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem;">
+                            Create Account (Demo Mode)
+                        </button>
+                        <p style="font-size: 0.9rem; color: #6B7280;">Google OAuth not configured for localhost</p>
+                    </div>
+                    
+                    <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
+                        Already have an account? <a href="/api/login" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Sign in</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Check if user is already logged in
+        function checkAuthStatus() {
+            const userToken = localStorage.getItem('userToken');
+            const userData = localStorage.getItem('userData');
+            
+            if (userToken && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('User already logged in:', user);
+                    // Redirect to main page if already logged in
+                    window.location.href = '/';
+                    return;
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    localStorage.removeItem('userToken');
+                    localStorage.removeItem('userData');
+                }
+            }
+        }
+        
+        // Check auth status on page load
+        checkAuthStatus();
+        
+        // Load Google Client ID and initialize
+        fetch('/api/auth/config')
+            .then(response => response.json())
+            .then(data => {
+                if (data.googleClientId && window.google) {
+                    try {
+                        window.google.accounts.id.initialize({
+                            client_id: data.googleClientId,
+                            callback: handleGoogleSignIn
+                        });
+                        
+                        window.google.accounts.id.renderButton(
+                            document.getElementById('googleSignInDiv'),
+                            { theme: 'outline', size: 'large', text: 'signup_with' }
+                        );
+                    } catch (error) {
+                        console.log('Google OAuth failed, showing fallback:', error);
+                        showFallbackAuth();
+                    }
+                } else {
+                    showFallbackAuth();
+                }
+            })
+            .catch(error => {
+                console.log('Failed to load auth config, showing fallback:', error);
+                showFallbackAuth();
+            });
+        
+        function showFallbackAuth() {
+            document.getElementById('googleSignInDiv').style.display = 'none';
+            document.getElementById('fallbackAuth').style.display = 'block';
+        }
+        
+        function handleMockRegister() {
+            const mockUser = {
+                id: '11111111-1111-1111-1111-111111111111',
+                email: 'demo@example.com',
+                name: 'Demo User',
+                picture: null,
+                provider: 'demo'
+            };
+            
+            localStorage.setItem('userToken', 'demo-jwt-token');
+            localStorage.setItem('userData', JSON.stringify(mockUser));
+            alert('Welcome Demo User! Account created successfully. Redirecting...');
+            window.location.href = '/';
+        }
+        
+        function handleGoogleSignIn(response) {
+            // Show loading state
+            const button = document.querySelector('#googleSignInDiv button');
+            if (button) {
+                button.style.opacity = '0.6';
+                button.style.pointerEvents = 'none';
+            }
+            
+            fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: response.credential })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    localStorage.setItem('userToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
+                    // Smooth redirect without popup
+                    window.location.href = '/';
+                } else {
+                    alert('Registration failed: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Registration error:', error);
+                alert('Registration failed. Please try again.');
+            });
+        }
+        
     </script>
 </body>
 </html>`;
@@ -555,10 +1478,10 @@ app.post('/api/auth/google', (req, res) => {
     
     // In real app, verify with Google here
     const mockUser = {
-        id: 'mock-user-123',
+        id: '22222222-2222-2222-2222-222222222222', // Valid UUID for test user
         email: 'test@example.com',
         name: 'Test User',
-        picture: 'https://via.placeholder.com/32',
+        picture: null,
         provider: 'google'
     };
     
@@ -575,11 +1498,159 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Subscription API endpoint
+app.post('/api/subscription', async (req, res) => {
+    try {
+        const { user_id, plan_type, billing_cycle, status, current_period_start, current_period_end, stripe_customer_id, stripe_subscription_id } = req.body;
+        
+        if (!user_id || !plan_type) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+        
+        console.log('📤 Received subscription data:', { user_id, plan_type, billing_cycle, status });
+        
+        // Check if subscription already exists for this user
+        let existingSubscription;
+        try {
+            existingSubscription = await db.getSubscriptionByUserId(user_id);
+        } catch (fetchError) {
+            if (fetchError.code !== 'PGRST116') {
+                console.error('Error fetching existing subscription:', fetchError);
+                return res.status(500).json({ error: 'Database error', details: fetchError.message });
+            }
+            existingSubscription = null;
+        }
+        
+        let result;
+        
+        if (existingSubscription) {
+            // Update existing subscription
+            try {
+                result = await db.updateSubscription(existingSubscription.stripe_subscription_id || existingSubscription.id, {
+                    plan_type: plan_type,
+                    billing_cycle: billing_cycle,
+                    status: status,
+                    current_period_start: current_period_start,
+                    current_period_end: current_period_end,
+                    stripe_customer_id: stripe_customer_id,
+                    stripe_subscription_id: stripe_subscription_id,
+                    updated_at: new Date().toISOString()
+                });
+                console.log('✅ Updated existing subscription for user:', user_id);
+            } catch (error) {
+                console.error('Error updating subscription:', error);
+                return res.status(500).json({ error: 'Failed to update subscription', details: error.message });
+            }
+        } else {
+            // Create new subscription - first ensure user exists
+            try {
+                // Check if user exists, if not create them
+                let user;
+                try {
+                    user = await db.getUserById(user_id);
+                    console.log('👤 User found:', user);
+                } catch (userError) {
+                    console.log('👤 User not found, creating new user:', user_id, 'Error:', userError.message);
+                    if (userError.code === 'PGRST116' || userError.message.includes('No rows found')) {
+                        // User doesn't exist, create them
+                        user = await db.createUser({
+                            id: user_id,
+                            email: `user-${user_id}@example.com`, // Default email
+                            name: `User ${user_id.substring(0, 8)}`,
+                            google_id: null
+                        });
+                        console.log('✅ Created new user:', user);
+                    } else {
+                        throw userError;
+                    }
+                }
+                
+                result = await db.createSubscription({
+                    user_id: user_id,
+                    plan_type: plan_type,
+                    billing_cycle: billing_cycle,
+                    status: status,
+                    current_period_start: current_period_start,
+                    current_period_end: current_period_end,
+                    stripe_customer_id: stripe_customer_id,
+                    stripe_subscription_id: stripe_subscription_id
+                });
+                console.log('✅ Created new subscription for user:', user_id);
+            } catch (error) {
+                console.error('Error creating subscription:', error);
+                return res.status(500).json({ error: 'Failed to create subscription', details: error.message });
+            }
+        }
+        
+        return res.status(200).json({
+            success: true,
+            subscription: result,
+            message: 'Subscription saved successfully'
+        });
+        
+    } catch (error) {
+        console.error('Subscription API error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error',
+            message: error.message
+        });
+    }
+});
+
+// Get subscription by user ID
+app.get('/api/subscription/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        
+        console.log('🔍 Fetching subscription for user:', userId);
+        
+        const subscription = await db.getSubscriptionByUserId(userId);
+        
+        if (subscription) {
+            console.log('✅ Subscription found:', subscription);
+            return res.status(200).json({
+                success: true,
+                subscription: subscription,
+                message: 'Subscription found'
+            });
+        } else {
+            console.log('🔄 No subscription found for user:', userId);
+            return res.status(200).json({
+                success: false,
+                subscription: null,
+                message: 'No subscription found'
+            });
+        }
+        
+    } catch (error) {
+        console.error('❌ Error fetching subscription:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Database error',
+            message: error.message
+        });
+    }
+});
+
+// Test subscription API endpoint
+app.get('/api/test-subscription', (req, res) => {
+    return res.status(200).json({
+        success: true,
+        message: 'API endpoint is working',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 Smart Statement Converter Server running on http://localhost:${PORT}`);
     console.log(`📁 Upload directory: ${path.resolve(uploadDir)}`);
-    console.log(`💳 Stripe integration: ${process.env.STRIPE_SECRET_KEY ? 'Configured' : 'Not configured'}`);
+    console.log(`💳 Stripe integration: ${stripe ? 'Configured' : 'Not configured (payment features disabled)'}`);
 });
 
 module.exports = app;
