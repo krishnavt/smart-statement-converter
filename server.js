@@ -890,12 +890,8 @@ app.get('/api/login', (req, res) => {
                 <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
                     <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
                     
-                    <!-- Fallback for local development -->
-                    <div id="fallbackAuth" style="display: none; text-align: center;">
-                        <button onclick="handleMockLogin()" style="width: 100%; background: #4F46E5; color: white; padding: 0.875rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem;">
-                            Sign In (Demo Mode)
-                        </button>
-                        <p style="font-size: 0.9rem; color: #6B7280;">Google OAuth not configured for localhost</p>
+                    <div id="authError" style="display: none; text-align: center; color: #dc2626; margin-top: 1rem;">
+                        <p>Google OAuth authentication is required. Please ensure it's properly configured.</p>
                     </div>
                     
                     <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
@@ -946,36 +942,22 @@ app.get('/api/login', (req, res) => {
                             { theme: 'outline', size: 'large', text: 'signin_with' }
                         );
                     } catch (error) {
-                        console.log('Google OAuth failed, showing fallback:', error);
-                        showFallbackAuth();
+                        console.error('Google OAuth failed:', error);
+                        showAuthError();
                     }
                 } else {
-                    showFallbackAuth();
+                    console.error('Google OAuth not configured');
+                    showAuthError();
                 }
             })
             .catch(error => {
-                console.log('Failed to load auth config, showing fallback:', error);
-                showFallbackAuth();
+                console.error('Failed to load auth config:', error);
+                showAuthError();
             });
         
-        function showFallbackAuth() {
+        function showAuthError() {
             document.getElementById('googleSignInDiv').style.display = 'none';
-            document.getElementById('fallbackAuth').style.display = 'block';
-        }
-        
-        function handleMockLogin() {
-            const mockUser = {
-                id: '11111111-1111-1111-1111-111111111111',
-                email: 'demo@example.com',
-                name: 'Demo User',
-                picture: null,
-                provider: 'demo'
-            };
-            
-            localStorage.setItem('userToken', 'demo-jwt-token');
-            localStorage.setItem('userData', JSON.stringify(mockUser));
-            alert('Welcome Demo User! You are now signed in. Redirecting...');
-            window.location.href = '/';
+            document.getElementById('authError').style.display = 'block';
         }
         
         function handleGoogleSignIn(response) {
@@ -1340,12 +1322,8 @@ app.get('/api/register', (req, res) => {
                 <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
                     <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
                     
-                    <!-- Fallback for local development -->
-                    <div id="fallbackAuth" style="display: none; text-align: center;">
-                        <button onclick="handleMockRegister()" style="width: 100%; background: #4F46E5; color: white; padding: 0.875rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-bottom: 1rem;">
-                            Create Account (Demo Mode)
-                        </button>
-                        <p style="font-size: 0.9rem; color: #6B7280;">Google OAuth not configured for localhost</p>
+                    <div id="authError" style="display: none; text-align: center; color: #dc2626; margin-top: 1rem;">
+                        <p>Google OAuth authentication is required. Please ensure it's properly configured.</p>
                     </div>
                     
                     <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
@@ -1396,36 +1374,22 @@ app.get('/api/register', (req, res) => {
                             { theme: 'outline', size: 'large', text: 'signup_with' }
                         );
                     } catch (error) {
-                        console.log('Google OAuth failed, showing fallback:', error);
-                        showFallbackAuth();
+                        console.error('Google OAuth failed:', error);
+                        showAuthError();
                     }
                 } else {
-                    showFallbackAuth();
+                    console.error('Google OAuth not configured');
+                    showAuthError();
                 }
             })
             .catch(error => {
-                console.log('Failed to load auth config, showing fallback:', error);
-                showFallbackAuth();
+                console.error('Failed to load auth config:', error);
+                showAuthError();
             });
         
-        function showFallbackAuth() {
+        function showAuthError() {
             document.getElementById('googleSignInDiv').style.display = 'none';
-            document.getElementById('fallbackAuth').style.display = 'block';
-        }
-        
-        function handleMockRegister() {
-            const mockUser = {
-                id: '11111111-1111-1111-1111-111111111111',
-                email: 'demo@example.com',
-                name: 'Demo User',
-                picture: null,
-                provider: 'demo'
-            };
-            
-            localStorage.setItem('userToken', 'demo-jwt-token');
-            localStorage.setItem('userData', JSON.stringify(mockUser));
-            alert('Welcome Demo User! Account created successfully. Redirecting...');
-            window.location.href = '/';
+            document.getElementById('authError').style.display = 'block';
         }
         
         function handleGoogleSignIn(response) {
@@ -1472,24 +1436,85 @@ app.get('/api/auth/config', (req, res) => {
     });
 });
 
-app.post('/api/auth/google', (req, res) => {
-    // For local development, just simulate successful auth
-    const { credential } = req.body;
-    
-    // In real app, verify with Google here
-    const mockUser = {
-        id: '22222222-2222-2222-2222-222222222222', // Valid UUID for test user
-        email: 'test@example.com',
-        name: 'Test User',
-        picture: null,
-        provider: 'google'
-    };
-    
+app.post('/api/auth/google', async (req, res) => {
+    const { OAuth2Client } = require('google-auth-library');
+    const jwt = require('jsonwebtoken');
+
+    const client = new OAuth2Client(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.FRONTEND_URL || 'http://localhost:3000'
+    );
+
+    try {
+        const { credential } = req.body;
+        
+        if (!credential) {
+            return res.status(400).json({ error: 'Missing Google credential' });
+        }
+        
+        // Verify the Google token
+        const ticket = await client.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        
+        const payload = ticket.getPayload();
+        const userId = payload['sub'];
+        const email = payload['email'];
+        const name = payload['name'];
+        const picture = payload['picture'];
+        const emailVerified = payload['email_verified'];
+        
+        // Create user data
+        const userData = {
+            id: userId,
+            email: email,
+            name: name,
+            picture: picture,
+            emailVerified: emailVerified,
+            provider: 'google',
+            loginAt: new Date().toISOString()
+        };
+        
+        // Create JWT token for session
+        const sessionToken = jwt.sign(
+            { 
+                userId: userData.id, 
+                email: userData.email,
+                name: userData.name,
+                googleId: userData.id
+            },
+            process.env.JWT_SECRET || 'fallback-secret-change-in-production',
+            { expiresIn: '7d' }
+        );
+        
+        console.log('Google authentication successful for:', email);
+        
+        // Return success response
+        res.json({
+            success: true,
+            user: userData,
+            token: sessionToken,
+            message: 'Authentication successful'
+        });
+        
+    } catch (error) {
+        console.error('Google authentication error:', error);
+        
+        res.status(401).json({
+            success: false,
+            error: 'Authentication failed',
+            message: error.message
+        });
+    }
+});
+
+// Logout endpoint to clear session
+app.post('/api/logout', (req, res) => {
     res.json({
         success: true,
-        user: mockUser,
-        token: 'mock-jwt-token',
-        message: 'Authentication successful'
+        message: 'Logged out successfully'
     });
 });
 
