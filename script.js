@@ -173,14 +173,7 @@ class SmartStatementConverter {
             return;
         }
 
-        // Show success message for valid files
-        if (validFiles.length > 0) {
-            this.showNotification(
-                `✅ ${validFiles.length} valid file${validFiles.length > 1 ? 's' : ''} ready for processing`, 
-                'success', 
-                3000
-            );
-        }
+        // Don't show notification for valid files - will show when processing completes
 
         this.uploadedFiles = validFiles;
         await this.processFiles(validFiles);
@@ -333,13 +326,8 @@ class SmartStatementConverter {
                     const result = await this.convertPDFToCSV(file);
                     results.push(result);
                     
-                    // Show success for individual file
+                    // Hide loading notification
                     this.hideLoadingNotification('file-processing');
-                    this.showNotification(
-                        `✅ ${file.name} processed successfully (${result.transactionCount} transactions found)`, 
-                        'success', 
-                        3000
-                    );
                     
                 } catch (fileError) {
                     console.error(`Error processing ${file.name}:`, fileError);
@@ -373,8 +361,12 @@ class SmartStatementConverter {
             if (results.length > 0) {
                 this.displayResults(results);
                 this.updateUserUsage(results.length);
+                
+                // Calculate total transactions
+                const totalTransactions = results.reduce((sum, result) => sum + (result.transactionCount || 0), 0);
+                
                 this.showNotification(
-                    `🎉 Successfully processed ${results.length} of ${files.length} files!`, 
+                    `🎉 Successfully processed ${results.length} file${results.length > 1 ? 's' : ''} (${totalTransactions} transactions found)`, 
                     'success', 
                     4000
                 );
