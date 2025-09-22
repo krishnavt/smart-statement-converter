@@ -1340,12 +1340,23 @@ app.post('/api/convert', async (req, res) => {
                 
                 let savedConversion = null;
                 try {
-                    savedConversion = await saveConversionHistory(userId, conversionData);
-                    if (savedConversion) {
+                    // Inline Supabase saving since external function is not deploying
+                    console.log('💾 Attempting to save conversion to Supabase...');
+                    if (db && db.createConversion) {
+                        savedConversion = await db.createConversion({
+                            userId: userId,
+                            filename: filename,
+                            originalFilename: req.file.originalname,
+                            csvData: csvData,
+                            transactionCount: processedData.transactions.length,
+                            fileSize: req.file.size
+                        });
                         console.log('✅ Conversion saved to Supabase:', savedConversion.id);
+                    } else {
+                        console.log('⚠️ Database not available for saving conversion');
                     }
                 } catch (historyError) {
-                    console.warn('⚠️ Failed to save conversion to history (Supabase not configured):', historyError.message);
+                    console.warn('⚠️ Failed to save conversion to history:', historyError.message);
                     // Continue with conversion even if history saving fails
                 }
                 
