@@ -328,37 +328,63 @@ app.get('/api/login', (req, res) => {
             });
         }
         
-        // Check auth status on page load
+        // Function to initialize Google Sign-In
+        function initializeGoogleSignIn(clientId) {
+            console.log('🔍 Initializing Google Sign-In with client ID:', clientId.substring(0, 20) + '...');
+            
+            // Check if Google Sign-In library is loaded
+            if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                try {
+                    google.accounts.id.initialize({
+                        client_id: clientId,
+                        callback: handleCredentialResponse,
+                        auto_select: false,
+                        cancel_on_tap_outside: true
+                    });
+                    
+                    const signInDiv = document.getElementById('googleSignInDiv');
+                    if (signInDiv) {
+                        google.accounts.id.renderButton(signInDiv, { 
+                            theme: 'outline', 
+                            size: 'large',
+                            width: '100%',
+                            text: 'signin_with'
+                        });
+                        
+                        console.log('✅ Google Sign-In button rendered successfully');
+                    } else {
+                        console.error('❌ googleSignInDiv element not found');
+                        document.getElementById('authError').style.display = 'block';
+                    }
+                    
+                    isGoogleLoaded = true;
+                    
+                    if (pendingCredentialResponse) {
+                        submitGoogleAuth(pendingCredentialResponse);
+                        pendingCredentialResponse = null;
+                    }
+                } catch (error) {
+                    console.error('❌ Error initializing Google Sign-In:', error);
+                    document.getElementById('authError').style.display = 'block';
+                }
+            } else {
+                console.log('⏳ Google Sign-In library not ready, retrying in 100ms...');
+                setTimeout(() => initializeGoogleSignIn(clientId), 100);
+            }
+        }
+        
+        // Check auth status and initialize Google Sign-In
         fetch('/api/auth/config')
             .then(response => response.json())
             .then(config => {
                 if (config.googleClientId) {
-                    console.log('🔍 Loading Google Sign-In with client ID:', config.googleClientId.substring(0, 20) + '...');
-                    
-                    window.onload = function () {
-                        google.accounts.id.initialize({
-                            client_id: config.googleClientId,
-                            callback: handleCredentialResponse,
-                            auto_select: false,
-                            cancel_on_tap_outside: true
+                    // Wait for DOM to be ready
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => {
+                            initializeGoogleSignIn(config.googleClientId);
                         });
-                        
-                        google.accounts.id.renderButton(
-                            document.getElementById('googleSignInDiv'),
-                            { 
-                                theme: 'outline', 
-                                size: 'large',
-                                width: '100%',
-                                text: 'signin_with'
-                            }
-                        );
-                        
-                        isGoogleLoaded = true;
-                        
-                        if (pendingCredentialResponse) {
-                            submitGoogleAuth(pendingCredentialResponse);
-                            pendingCredentialResponse = null;
-                        }
+                    } else {
+                        initializeGoogleSignIn(config.googleClientId);
                     }
                 } else {
                     console.error('❌ No Google Client ID configured');
@@ -474,37 +500,63 @@ app.get('/api/register', (req, res) => {
             });
         }
         
-        // Check auth status on page load
+        // Function to initialize Google Sign-In
+        function initializeGoogleSignIn(clientId) {
+            console.log('🔍 Initializing Google Sign-In with client ID:', clientId.substring(0, 20) + '...');
+            
+            // Check if Google Sign-In library is loaded
+            if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                try {
+                    google.accounts.id.initialize({
+                        client_id: clientId,
+                        callback: handleCredentialResponse,
+                        auto_select: false,
+                        cancel_on_tap_outside: true
+                    });
+                    
+                    const signInDiv = document.getElementById('googleSignInDiv');
+                    if (signInDiv) {
+                        google.accounts.id.renderButton(signInDiv, { 
+                            theme: 'outline', 
+                            size: 'large',
+                            width: '100%',
+                            text: 'signup_with'
+                        });
+                        
+                        console.log('✅ Google Sign-In button rendered successfully');
+                    } else {
+                        console.error('❌ googleSignInDiv element not found');
+                        document.getElementById('authError').style.display = 'block';
+                    }
+                    
+                    isGoogleLoaded = true;
+                    
+                    if (pendingCredentialResponse) {
+                        submitGoogleAuth(pendingCredentialResponse);
+                        pendingCredentialResponse = null;
+                    }
+                } catch (error) {
+                    console.error('❌ Error initializing Google Sign-In:', error);
+                    document.getElementById('authError').style.display = 'block';
+                }
+            } else {
+                console.log('⏳ Google Sign-In library not ready, retrying in 100ms...');
+                setTimeout(() => initializeGoogleSignIn(clientId), 100);
+            }
+        }
+        
+        // Check auth status and initialize Google Sign-In
         fetch('/api/auth/config')
             .then(response => response.json())
             .then(config => {
                 if (config.googleClientId) {
-                    console.log('🔍 Loading Google Sign-In with client ID:', config.googleClientId.substring(0, 20) + '...');
-                    
-                    window.onload = function () {
-                        google.accounts.id.initialize({
-                            client_id: config.googleClientId,
-                            callback: handleCredentialResponse,
-                            auto_select: false,
-                            cancel_on_tap_outside: true
+                    // Wait for DOM to be ready
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => {
+                            initializeGoogleSignIn(config.googleClientId);
                         });
-                        
-                        google.accounts.id.renderButton(
-                            document.getElementById('googleSignInDiv'),
-                            { 
-                                theme: 'outline', 
-                                size: 'large',
-                                width: '100%',
-                                text: 'signup_with'
-                            }
-                        );
-                        
-                        isGoogleLoaded = true;
-                        
-                        if (pendingCredentialResponse) {
-                            submitGoogleAuth(pendingCredentialResponse);
-                            pendingCredentialResponse = null;
-                        }
+                    } else {
+                        initializeGoogleSignIn(config.googleClientId);
                     }
                 } else {
                     console.error('❌ No Google Client ID configured');
