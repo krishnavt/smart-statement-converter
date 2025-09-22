@@ -1297,7 +1297,14 @@ app.post('/api/convert', async (req, res) => {
                 console.log('🔍 File info:', { name: req.file.originalname, size: req.file.size });
                 
                 // Process bank statement data
+                console.log('🔍 PDF text length:', pdfData.text.length);
+                console.log('🔍 First 500 chars of PDF text:', pdfData.text.substring(0, 500));
                 const processedData = processBankStatement(pdfData.text);
+                console.log('🔍 Processed data:', { 
+                    totalTransactions: processedData.totalTransactions, 
+                    transactionsLength: processedData.transactions?.length,
+                    usedSampleData: processedData.metadata?.usedSampleData 
+                });
                 
                 // Generate CSV data
                 const csvData = generateCSV(processedData.transactions);
