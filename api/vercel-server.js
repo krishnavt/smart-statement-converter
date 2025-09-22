@@ -19,18 +19,49 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files - serve from root directory
-app.use(express.static(path.join(__dirname, '..'), {
-    setHeaders: (res, path) => {
-        if (path.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css');
-        } else if (path.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript');
-        } else if (path.endsWith('.json')) {
-            res.setHeader('Content-Type', 'application/json');
-        }
+// Manual static file serving for Vercel
+const serveStaticFile = (req, res, next) => {
+    const filePath = req.path;
+    
+    // Skip API routes
+    if (filePath.startsWith('/api/')) {
+        return next();
     }
-}));
+    
+    let fullPath;
+    let contentType;
+    
+    if (filePath.endsWith('.css')) {
+        fullPath = path.join(__dirname, '..', filePath);
+        contentType = 'text/css';
+    } else if (filePath.endsWith('.js')) {
+        fullPath = path.join(__dirname, '..', filePath);
+        contentType = 'application/javascript';
+    } else if (filePath.endsWith('.json')) {
+        fullPath = path.join(__dirname, '..', filePath);
+        contentType = 'application/json';
+    } else if (filePath.match(/\.(png|jpg|jpeg|gif|ico|svg)$/)) {
+        fullPath = path.join(__dirname, '..', filePath);
+        contentType = 'image/' + filePath.split('.').pop();
+    } else {
+        return next();
+    }
+    
+    try {
+        if (fs.existsSync(fullPath)) {
+            const fileContent = fs.readFileSync(fullPath);
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            res.send(fileContent);
+        } else {
+            next();
+        }
+    } catch (error) {
+        next();
+    }
+};
+
+app.use(serveStaticFile);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
