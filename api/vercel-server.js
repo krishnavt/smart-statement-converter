@@ -8,7 +8,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Import existing modules
-const db = require('./lib/supabase');
+const { db } = require('../lib/supabase');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Create Express app
@@ -20,7 +20,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '..')));
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
@@ -269,19 +269,19 @@ app.post('/api/create-payment-intent', async (req, res) => {
 
 // Serve main pages
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
 app.get('/profile', (req, res) => {
-    res.sendFile(path.join(__dirname, 'profile.html'));
+    res.sendFile(path.join(__dirname, '..', 'profile.html'));
 });
 
 app.get('/privacy', (req, res) => {
-    res.sendFile(path.join(__dirname, 'privacy.html'));
+    res.sendFile(path.join(__dirname, '..', 'privacy.html'));
 });
 
 app.get('/terms', (req, res) => {
-    res.sendFile(path.join(__dirname, 'terms.html'));
+    res.sendFile(path.join(__dirname, '..', 'terms.html'));
 });
 
 // Error handling middleware
