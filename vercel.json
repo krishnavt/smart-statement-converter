@@ -18,6 +18,9 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "VERCEL": "1"
+    "VERCEL": "1",
+    "SUPABASE_URL": "https://korlxghajrdussqbxqth.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtvcmx4Z2hhanJkdXNzcWJ4cXRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjc3ODksImV4cCI6MjA3MzY0Mzc4OX0.23QlojDnvFpkF9tM1AMo-FY8CaM7flMlg2uWrrjxYSw",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtvcmx4Z2hhanJkdXNzcWJ4cXRoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODA2Nzc4OSwiZXhwIjoyMDczNjQzNzg5fQ.3-YXsJlIqv7uWeKOA4zNKAn7vGa3AEgOkpfJYpXCaiA"
   }
 }
