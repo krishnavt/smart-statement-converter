@@ -201,6 +201,306 @@ function processBankStatement(text) {
     };
 }
 
+// Auth config endpoint
+app.get('/api/auth/config', (req, res) => {
+    res.json({
+        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || ''
+    });
+});
+
+// Login page endpoint
+app.get('/api/login', (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Statement Converter</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <a href="/" style="text-decoration: none; color: inherit;">
+                            <span>SMART STATEMENT CONVERTER</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/#pricing" class="nav-link">Pricing</a>
+                    <a href="/api/login" class="nav-link">Login</a>
+                    <a href="/api/register" class="nav-link primary">Register</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    <section class="hero" style="min-height: 80vh; display: flex; align-items: center;">
+        <div class="container">
+            <div class="hero-content" style="max-width: 400px; margin: 0 auto;">
+                <h1 class="hero-title" style="font-size: 2.5rem; margin-bottom: 1rem;">Welcome Back</h1>
+                <p class="hero-subtitle" style="margin-bottom: 2rem;">Sign in to your account to continue converting your bank statements.</p>
+                
+                <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
+                    <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
+                    
+                    <div id="authError" style="display: none; text-align: center; color: #dc2626; margin-top: 1rem;">
+                        <p>Google OAuth authentication is required. Please ensure it's properly configured.</p>
+                    </div>
+                    
+                    <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
+                        Don't have an account? <a href="/api/register" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Sign up here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        let isGoogleLoaded = false;
+        let pendingCredentialResponse = null;
+        
+        function handleCredentialResponse(response) {
+            pendingCredentialResponse = response;
+            if (isGoogleLoaded) {
+                submitGoogleAuth(response);
+            }
+        }
+        
+        function submitGoogleAuth(response) {
+            console.log('🔑 Submitting Google authentication...');
+            fetch('/api/auth/google', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    credential: response.credential
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ Authentication successful:', data.user);
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = '/';
+                } else {
+                    console.error('❌ Authentication failed:', data.error);
+                    alert('Authentication failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Network error:', error);
+                alert('Network error during authentication. Please try again.');
+            });
+        }
+        
+        // Check auth status on page load
+        fetch('/api/auth/config')
+            .then(response => response.json())
+            .then(config => {
+                if (config.googleClientId) {
+                    console.log('🔍 Loading Google Sign-In with client ID:', config.googleClientId.substring(0, 20) + '...');
+                    
+                    window.onload = function () {
+                        google.accounts.id.initialize({
+                            client_id: config.googleClientId,
+                            callback: handleCredentialResponse,
+                            auto_select: false,
+                            cancel_on_tap_outside: true
+                        });
+                        
+                        google.accounts.id.renderButton(
+                            document.getElementById('googleSignInDiv'),
+                            { 
+                                theme: 'outline', 
+                                size: 'large',
+                                width: '100%',
+                                text: 'signin_with'
+                            }
+                        );
+                        
+                        isGoogleLoaded = true;
+                        
+                        if (pendingCredentialResponse) {
+                            submitGoogleAuth(pendingCredentialResponse);
+                            pendingCredentialResponse = null;
+                        }
+                    }
+                } else {
+                    console.error('❌ No Google Client ID configured');
+                    document.getElementById('authError').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load auth config:', error);
+                document.getElementById('authError').style.display = 'block';
+            });
+    </script>
+</body>
+</html>
+    `;
+    res.send(html);
+});
+
+// Register page endpoint
+app.get('/api/register', (req, res) => {
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart Statement Converter</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="navbar">
+                <div class="nav-brand">
+                    <div class="logo">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <rect x="4" y="8" width="24" height="16" rx="2" stroke="#4F46E5" stroke-width="2" fill="#4F46E5"/>
+                            <rect x="6" y="10" width="20" height="2" fill="white"/>
+                            <rect x="6" y="14" width="12" height="2" fill="white"/>
+                            <rect x="6" y="18" width="16" height="2" fill="white"/>
+                        </svg>
+                        <a href="/" style="text-decoration: none; color: inherit;">
+                            <span>SMART STATEMENT CONVERTER</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <a href="/#pricing" class="nav-link">Pricing</a>
+                    <a href="/api/login" class="nav-link">Login</a>
+                    <a href="/api/register" class="nav-link primary">Register</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+    <section class="hero" style="min-height: 80vh; display: flex; align-items: center;">
+        <div class="container">
+            <div class="hero-content" style="max-width: 400px; margin: 0 auto;">
+                <h1 class="hero-title" style="font-size: 2.5rem; margin-bottom: 1rem;">Create Account</h1>
+                <p class="hero-subtitle" style="margin-bottom: 2rem;">Sign up for a free account to get started with converting your bank statements.</p>
+                
+                <div class="login-form-container" style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);">
+                    <div id="googleSignInDiv" style="display: flex; justify-content: center; margin-bottom: 2rem;"></div>
+                    
+                    <div id="authError" style="display: none; text-align: center; color: #dc2626; margin-top: 1rem;">
+                        <p>Google OAuth authentication is required. Please ensure it's properly configured.</p>
+                    </div>
+                    
+                    <p style="text-align: center; margin-top: 2rem; color: #6B7280;">
+                        Already have an account? <a href="/api/login" style="color: #4F46E5; text-decoration: none; font-weight: 500;">Sign in</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        let isGoogleLoaded = false;
+        let pendingCredentialResponse = null;
+        
+        function handleCredentialResponse(response) {
+            pendingCredentialResponse = response;
+            if (isGoogleLoaded) {
+                submitGoogleAuth(response);
+            }
+        }
+        
+        function submitGoogleAuth(response) {
+            console.log('🔑 Submitting Google authentication...');
+            fetch('/api/auth/google', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    credential: response.credential
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ Authentication successful:', data.user);
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = '/';
+                } else {
+                    console.error('❌ Authentication failed:', data.error);
+                    alert('Authentication failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Network error:', error);
+                alert('Network error during authentication. Please try again.');
+            });
+        }
+        
+        // Check auth status on page load
+        fetch('/api/auth/config')
+            .then(response => response.json())
+            .then(config => {
+                if (config.googleClientId) {
+                    console.log('🔍 Loading Google Sign-In with client ID:', config.googleClientId.substring(0, 20) + '...');
+                    
+                    window.onload = function () {
+                        google.accounts.id.initialize({
+                            client_id: config.googleClientId,
+                            callback: handleCredentialResponse,
+                            auto_select: false,
+                            cancel_on_tap_outside: true
+                        });
+                        
+                        google.accounts.id.renderButton(
+                            document.getElementById('googleSignInDiv'),
+                            { 
+                                theme: 'outline', 
+                                size: 'large',
+                                width: '100%',
+                                text: 'signup_with'
+                            }
+                        );
+                        
+                        isGoogleLoaded = true;
+                        
+                        if (pendingCredentialResponse) {
+                            submitGoogleAuth(pendingCredentialResponse);
+                            pendingCredentialResponse = null;
+                        }
+                    }
+                } else {
+                    console.error('❌ No Google Client ID configured');
+                    document.getElementById('authError').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading auth config:', error);
+                document.getElementById('authError').style.display = 'block';
+            });
+    </script>
+</body>
+</html>
+    `;
+    res.send(html);
+});
+
 // Google OAuth endpoint
 app.post('/api/auth/google', async (req, res) => {
     try {
@@ -332,6 +632,204 @@ app.post('/api/create-payment-intent', async (req, res) => {
         });
     }
 });
+
+// Get subscription by user ID
+app.get('/api/subscription/:userId', async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        const subscription = await db.getSubscriptionByUserId(userId);
+        
+        if (!subscription) {
+            return res.json({
+                planType: 'anonymous',
+                status: 'inactive',
+                creditsRemaining: 1
+            });
+        }
+        
+        res.json(subscription);
+    } catch (error) {
+        console.error('Subscription fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch subscription' });
+    }
+});
+
+// Check credit limits endpoint
+app.get('/api/check-credit-limits', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        
+        const creditLimits = await db.checkCreditLimits(userId);
+        res.json(creditLimits);
+    } catch (error) {
+        console.error('Credit limits check error:', error);
+        res.status(500).json({ error: 'Failed to check credit limits' });
+    }
+});
+
+// Track credit usage endpoint
+app.post('/api/track-credit-usage', async (req, res) => {
+    try {
+        const { userId, fileName, pageCount, creditsUsed, date, description } = req.body;
+        
+        const result = await db.trackCreditUsage({
+            userId,
+            fileName,
+            pageCount,
+            creditsUsed,
+            date,
+            description
+        });
+        
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error('Credit usage tracking error:', error);
+        res.status(500).json({ error: 'Failed to track credit usage' });
+    }
+});
+
+// History endpoints
+app.get('/api/history', async (req, res) => {
+    try {
+        const userId = req.query.userId || 'anonymous';
+        const history = await db.getConversionHistory(userId);
+        res.json(history || []);
+    } catch (error) {
+        console.error('History fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
+app.get('/api/history/:conversionId', async (req, res) => {
+    try {
+        const userId = req.query.userId || 'anonymous';
+        const conversionId = req.params.conversionId;
+        
+        const conversion = await db.getConversionById(userId, conversionId);
+        if (!conversion) {
+            return res.status(404).json({ error: 'Conversion not found' });
+        }
+        
+        res.json(conversion);
+    } catch (error) {
+        console.error('Conversion fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch conversion' });
+    }
+});
+
+app.delete('/api/history/:conversionId', async (req, res) => {
+    try {
+        const userId = req.query.userId || 'anonymous';
+        const conversionId = req.params.conversionId;
+        
+        const success = await db.deleteConversion(conversionId, userId);
+        if (!success) {
+            return res.status(404).json({ error: 'Conversion not found' });
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Conversion delete error:', error);
+        res.status(500).json({ error: 'Failed to delete conversion' });
+    }
+});
+
+// Stripe config endpoint
+app.get('/api/stripe-config', (req, res) => {
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+    const isConfigured = publishableKey && publishableKey !== 'pk_test_your_key_here';
+    
+    res.json({
+        publishableKey: isConfigured ? publishableKey : null,
+        isConfigured: isConfigured
+    });
+});
+
+// Convert endpoint (simplified for Vercel)
+app.post('/api/convert', async (req, res) => {
+    try {
+        const multer = require('multer');
+        const upload = multer({
+            dest: '/tmp/',
+            limits: {
+                fileSize: 10 * 1024 * 1024, // 10MB
+                files: 1
+            },
+            fileFilter: (req, file, cb) => {
+                if (file.mimetype === 'application/pdf') {
+                    cb(null, true);
+                } else {
+                    cb(new Error('Only PDF files are allowed'), false);
+                }
+            }
+        });
+
+        upload.single('pdf')(req, res, async (err) => {
+            if (err) {
+                return res.status(400).json({ error: err.message });
+            }
+
+            if (!req.file) {
+                return res.status(400).json({ error: 'No file uploaded' });
+            }
+
+            try {
+                // Process PDF
+                const pdfBuffer = await fs.readFile(req.file.path);
+                const pdfParse = require('pdf-parse');
+                const pdfData = await pdfParse(pdfBuffer);
+                
+                // Clean up temp file
+                await fs.unlink(req.file.path);
+                
+                // Process bank statement data
+                const processedData = processBankStatement(pdfData.text);
+                
+                // Generate CSV data
+                const csvData = generateCSV(processedData.transactions);
+                
+                res.json({
+                    success: true,
+                    filename: req.file.originalname.replace('.pdf', '.csv'),
+                    csvData: csvData,
+                    transactionCount: processedData.transactions.length,
+                    originalFilename: req.file.originalname
+                });
+            } catch (error) {
+                // Clean up temp file on error
+                if (req.file && await fs.pathExists(req.file.path)) {
+                    await fs.unlink(req.file.path);
+                }
+                res.status(500).json({ error: 'File processing failed', message: error.message });
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Upload failed' });
+    }
+});
+
+// Generate CSV function
+function generateCSV(transactions) {
+    const headers = ['Date', 'Type', 'Description', 'Amount', 'Balance'];
+    const csvRows = [headers.join(',')];
+    
+    transactions.forEach(transaction => {
+        const row = [
+            transaction.date,
+            transaction.type,
+            `"${transaction.description.replace(/"/g, '""')}"`,
+            transaction.amount,
+            transaction.balance
+        ];
+        csvRows.push(row.join(','));
+    });
+    
+    return csvRows.join('\n');
+}
 
 // Serve main pages
 app.get('/', (req, res) => {
