@@ -1,0 +1,12 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" rx="24" fill="#4F46E5"/>
+  <rect x="32" y="48" width="128" height="96" rx="8" fill="white"/>
+  <rect x="40" y="64" width="112" height="8" fill="#4F46E5"/>
+  <rect x="40" y="80" width="80" height="8" fill="#4F46E5"/>
+  <rect x="40" y="96" width="96" height="8" fill="#4F46E5"/>
+  <rect x="40" y="112" width="64" height="8" fill="#4F46E5"/>
+  <rect x="40" y="128" width="88" height="8" fill="#4F46E5"/>
+  <path d="M96 24L96 40M88 32L96 40L104 32" stroke="#4F46E5" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="120" y="24" width="32" height="24" rx="4" fill="#10B981"/>
+  <text x="136" y="38" font-family="Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">CSV</text>
+</svg>
