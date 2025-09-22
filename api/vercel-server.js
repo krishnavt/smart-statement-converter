@@ -34,6 +34,7 @@ const serveStaticFile = (req, res, next) => {
     // Remove leading slash for path.join
     const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
     
+    // Determine file type and set content type
     if (filePath.endsWith('.css')) {
         fullPath = path.join(__dirname, '..', cleanPath);
         contentType = 'text/css';
@@ -45,7 +46,20 @@ const serveStaticFile = (req, res, next) => {
         contentType = 'application/json';
     } else if (filePath.match(/\.(png|jpg|jpeg|gif|ico|svg)$/)) {
         fullPath = path.join(__dirname, '..', cleanPath);
-        contentType = 'image/' + filePath.split('.').pop();
+        const extension = filePath.split('.').pop().toLowerCase();
+        if (extension === 'svg') {
+            contentType = 'image/svg+xml';
+        } else if (extension === 'ico') {
+            contentType = 'image/x-icon';
+        } else {
+            contentType = 'image/' + extension;
+        }
+    } else if (filePath.endsWith('.html')) {
+        fullPath = path.join(__dirname, '..', cleanPath);
+        contentType = 'text/html';
+    } else if (filePath.endsWith('.txt')) {
+        fullPath = path.join(__dirname, '..', cleanPath);
+        contentType = 'text/plain';
     } else {
         return next();
     }
@@ -56,8 +70,15 @@ const serveStaticFile = (req, res, next) => {
             const fileContent = fs.readFileSync(fullPath);
             res.setHeader('Content-Type', contentType);
             res.setHeader('Cache-Control', 'public, max-age=3600');
+            
+            // Add additional headers for JS files to prevent CORS issues
+            if (filePath.endsWith('.js')) {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+            }
+            
             res.send(fileContent);
         } else {
+            console.log('File not found:', fullPath);
             next();
         }
     } catch (error) {
