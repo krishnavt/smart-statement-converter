@@ -508,6 +508,33 @@ function processBankStatement(text) {
     }
 }
 
+// Conversion history helper function using Supabase
+async function saveConversionHistory(userId, conversionData) {
+    try {
+        const conversion = await db.createConversion({
+            userId: userId,
+            filename: conversionData.filename,
+            originalFilename: conversionData.originalFilename,
+            csvData: conversionData.csvData,
+            transactionCount: conversionData.transactionCount,
+            fileSize: conversionData.fileSize
+        });
+        
+        return {
+            id: conversion.id,
+            timestamp: conversion.created_at,
+            filename: conversion.filename,
+            originalFilename: conversion.original_filename,
+            csvData: conversion.csv_data,
+            transactionCount: conversion.transaction_count,
+            fileSize: conversion.file_size
+        };
+    } catch (error) {
+        console.error('Error saving conversion to Supabase:', error);
+        throw error;
+    }
+}
+
 // Auth config endpoint
 app.get('/api/auth/config', (req, res) => {
     res.json({
@@ -1263,18 +1290,64 @@ app.post('/api/convert', async (req, res) => {
                 // Clean up temp file
                 await fs.unlink(req.file.path);
                 
+                // Get user ID from request
+                const userId = req.body.userId || 'anonymous';
+                console.log('Processing PDF for user:', userId);
+                
                 // Process bank statement data
                 const processedData = processBankStatement(pdfData.text);
                 
                 // Generate CSV data
                 const csvData = generateCSV(processedData.transactions);
                 
-                res.json({
-                    success: true,
-                    filename: req.file.originalname.replace('.pdf', '.csv'),
+                // Generate filename
+                const filename = req.file.originalname.replace('.pdf', '.csv');
+                
+                // Save conversion to Supabase
+                const conversionData = {
+                    filename: filename,
+                    originalFilename: req.file.originalname,
                     csvData: csvData,
                     transactionCount: processedData.transactions.length,
-                    originalFilename: req.file.originalname
+                    fileSize: req.file.size
+                };
+                
+                let savedConversion = null;
+                try {
+                    savedConversion = await saveConversionHistory(userId, conversionData);
+                    if (savedConversion) {
+                        console.log('✅ Conversion saved to Supabase:', savedConversion.id);
+                    }
+                } catch (historyError) {
+                    console.warn('⚠️ Failed to save conversion to history (Supabase not configured):', historyError.message);
+                    // Continue with conversion even if history saving fails
+                }
+                
+                // Track credit usage
+                try {
+                    await db.trackCreditUsage({
+                        userId: userId,
+                        fileName: req.file.originalname,
+                        pageCount: 1, // PDF page count could be extracted if needed
+                        creditsUsed: 1,
+                        date: new Date().toISOString(),
+                        description: `PDF conversion: ${req.file.originalname}`
+                    });
+                    console.log('✅ Credit usage tracked successfully');
+                } catch (creditError) {
+                    console.warn('⚠️ Failed to track credit usage:', creditError.message);
+                    // Continue even if credit tracking fails
+                }
+                
+                console.log('✅ PDF Conversion completed successfully');
+                
+                res.json({
+                    success: true,
+                    filename: filename,
+                    csvData: csvData,
+                    transactionCount: processedData.transactions.length,
+                    originalFilename: req.file.originalname,
+                    conversionId: savedConversion?.id || null
                 });
             } catch (error) {
                 // Clean up temp file on error
