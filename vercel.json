@@ -1,20 +1,20 @@
 {
   "version": 2,
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/vercel-server"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/api/vercel-server"
-    }
-  ],
   "functions": {
     "api/vercel-server.js": {
       "maxDuration": 30
     }
   },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/vercel-server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/vercel-server.js"
+    }
+  ],
   "env": {
     "NODE_ENV": "production",
     "VERCEL": "1"
