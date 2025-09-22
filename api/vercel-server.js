@@ -83,6 +83,26 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
+// Debug endpoint to check file structure
+app.get('/api/debug-files', (req, res) => {
+    try {
+        const rootDir = path.join(__dirname, '..');
+        const files = fs.readdirSync(rootDir);
+        
+        const fileInfo = {
+            currentDir: __dirname,
+            parentDir: rootDir,
+            files: files,
+            stylesExist: fs.existsSync(path.join(rootDir, 'styles.css')),
+            jsDir: fs.existsSync(path.join(rootDir, 'js')) ? fs.readdirSync(path.join(rootDir, 'js')) : 'js directory not found'
+        };
+        
+        res.json(fileInfo);
+    } catch (error) {
+        res.json({ error: error.message });
+    }
+});
+
 // File upload endpoint (simplified for Vercel)
 app.post('/api/upload', async (req, res) => {
     try {
