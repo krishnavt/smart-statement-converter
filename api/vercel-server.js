@@ -11,8 +11,11 @@ dotenv.config();
 const { db } = require('../lib/supabase');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// Create Express app
+// Create Express app  
 const app = express();
+
+// Force deployment timestamp
+console.log('🚀 VERCEL DEPLOYMENT:', new Date().toISOString());
 
 // Middleware
 app.use(cors());
