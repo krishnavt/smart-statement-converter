@@ -124,11 +124,10 @@ app.use(express.static('.')); // Serve static files from current directory
 
 // Ensure upload directories exist (only in local development)
 const uploadDir = './uploads';
-
-// Ensure directories exist
-fs.ensureDirSync(uploadDir);
 const tempDir = './temp';
-if (!process.env.VERCEL) {
+
+// Only create directories in local development, not in Vercel
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
     fs.ensureDirSync(uploadDir);
     fs.ensureDirSync(tempDir);
 }

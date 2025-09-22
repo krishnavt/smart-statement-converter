@@ -4,7 +4,7 @@
   "description": "Smart PDF statement converter - Transform bank statements into clean CSV/Excel format",
   "main": "index.html",
   "scripts": {
-    "dev": "node server.js",
+    "dev": "node local-server.js",
     "dev-vercel": "vercel dev",
     "build": "echo 'No build required'",
     "start": "vercel dev"
