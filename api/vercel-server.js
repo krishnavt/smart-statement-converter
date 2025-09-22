@@ -754,9 +754,13 @@ app.get('/api/subscription/:userId', async (req, res) => {
         if (!db || typeof db.getSubscriptionByUserId !== 'function') {
             console.warn('⚠️ Database not available, returning default subscription');
             return res.json({
-                planType: 'free',
-                status: 'active',
-                creditsRemaining: 1
+                success: true,
+                subscription: {
+                    plan_type: 'free',
+                    billing_cycle: 'monthly',
+                    status: 'active',
+                    creditsRemaining: 1
+                }
             });
         }
         
@@ -765,22 +769,33 @@ app.get('/api/subscription/:userId', async (req, res) => {
         if (!subscription) {
             console.log('💳 No subscription found, returning default');
             return res.json({
-                planType: 'free',
-                status: 'active',
-                creditsRemaining: 1
+                success: true,
+                subscription: {
+                    plan_type: 'free',
+                    billing_cycle: 'monthly',
+                    status: 'active',
+                    creditsRemaining: 1
+                }
             });
         }
         
-        console.log('💳 Subscription found:', subscription.planType);
-        res.json(subscription);
+        console.log('💳 Subscription found:', subscription.plan_type || subscription.planType);
+        res.json({
+            success: true,
+            subscription: subscription
+        });
     } catch (error) {
         console.error('❌ Subscription fetch error:', error.message);
         console.error('Error details:', error);
         // Return default subscription instead of error
         res.json({
-            planType: 'free',
-            status: 'active',
-            creditsRemaining: 1
+            success: true,
+            subscription: {
+                plan_type: 'free',
+                billing_cycle: 'monthly',
+                status: 'active',
+                creditsRemaining: 1
+            }
         });
     }
 });
