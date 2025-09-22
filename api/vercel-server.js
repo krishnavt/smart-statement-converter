@@ -111,6 +111,7 @@ app.get('/api/health', async (req, res) => {
         res.json({
             status: 'healthy',
             timestamp: new Date().toISOString(),
+            version: '2025-09-22-v3',
             services: {
                 database: true,
                 stripe: !!stripe
