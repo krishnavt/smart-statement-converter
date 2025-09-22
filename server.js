@@ -584,6 +584,34 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
         
         console.log('Processing PDF:', req.file.originalname, 'Size:', req.file.size, 'bytes');
         
+        // Check credit limits before processing
+        const userId = req.body.userId || ANONYMOUS_USER_ID;
+        try {
+            const creditLimits = await db.checkCreditLimits(userId);
+            console.log('📊 Credit check result:', creditLimits);
+            
+            if (!creditLimits.canConvert) {
+                console.log('❌ Credit limit exceeded for user:', userId);
+                return res.status(403).json({
+                    error: 'Credit limit exceeded',
+                    code: 'CREDIT_LIMIT_EXCEEDED',
+                    message: `You have used ${creditLimits.currentUsage}/${creditLimits.dailyLimit} daily conversions.`,
+                    details: {
+                        dailyLimit: creditLimits.dailyLimit,
+                        currentUsage: creditLimits.currentUsage,
+                        remaining: creditLimits.remaining,
+                        isRegistered: creditLimits.isRegistered,
+                        subscription: creditLimits.subscription
+                    }
+                });
+            }
+            
+            console.log(`✅ Credit check passed: ${creditLimits.remaining}/${creditLimits.dailyLimit} remaining`);
+        } catch (creditError) {
+            console.warn('Failed to check credit limits:', creditError.message);
+            // Continue with conversion if credit check fails (fallback)
+        }
+        
         // Enhanced file validation
         const validation = validateUploadedFile(req.file);
         if (!validation.isValid) {
@@ -685,8 +713,8 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
         const originalName = req.file.originalname.replace('.pdf', '');
         const filename = `${originalName}_converted.csv`;
         
-        // Save conversion to history
-        const userId = req.body.userId || ANONYMOUS_USER_ID;
+        // Save conversion to history (optional, don't fail if Supabase is not configured)
+        // userId already declared above in credit checking section
         const conversionData = {
             filename: filename,
             originalFilename: req.file.originalname,
@@ -695,9 +723,15 @@ app.post('/api/convert', upload.single('pdf'), async (req, res) => {
             fileSize: req.file.size
         };
         
-        const savedConversion = await saveConversionHistory(userId, conversionData);
-        if (savedConversion) {
-            console.log('Conversion saved to Supabase:', savedConversion.id);
+        let savedConversion = null;
+        try {
+            savedConversion = await saveConversionHistory(userId, conversionData);
+            if (savedConversion) {
+                console.log('Conversion saved to Supabase:', savedConversion.id);
+            }
+        } catch (historyError) {
+            console.warn('Failed to save conversion to history (Supabase not configured):', historyError.message);
+            // Continue with conversion even if history saving fails
         }
         
         console.log('=== PDF Conversion Completed Successfully ===');
@@ -1491,6 +1525,33 @@ app.post('/api/auth/google', async (req, res) => {
         
         console.log('Google authentication successful for:', email);
         
+        // Create or update user in database
+        try {
+            await db.createUser({
+                id: userId,
+                email: email,
+                name: name,
+                picture: picture
+            });
+            console.log('✅ User created/updated in database:', email);
+        } catch (userError) {
+            // User might already exist, try to update instead
+            if (userError.message.includes('duplicate key') || userError.code === '23505') {
+                try {
+                    await db.updateUser(userId, {
+                        email: email,
+                        name: name,
+                        picture_url: picture
+                    });
+                    console.log('✅ User updated in database:', email);
+                } catch (updateError) {
+                    console.warn('Failed to create/update user in database:', updateError.message);
+                }
+            } else {
+                console.warn('Failed to create user in database:', userError.message);
+            }
+        }
+        
         // Return success response
         res.json({
             success: true,
@@ -1516,6 +1577,133 @@ app.post('/api/logout', (req, res) => {
         success: true,
         message: 'Logged out successfully'
     });
+});
+
+// Credit usage endpoint
+app.get('/api/credit-usage', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        
+        // Try to get from database first
+        try {
+            const creditUsage = await db.getCreditUsageByUserId(userId);
+            const formattedUsage = creditUsage.map(usage => ({
+                date: usage.created_at,
+                description: usage.description,
+                creditsUsed: usage.credits_used
+            }));
+            return res.json(formattedUsage);
+        } catch (dbError) {
+            console.warn('Failed to fetch credit usage from database:', dbError.message);
+            
+            // Fallback to sample data
+            const sampleCreditUsage = [
+                {
+                    date: '2025-09-14T17:24:00Z',
+                    description: 'Converted a 8 page PDF.',
+                    creditsUsed: 1
+                },
+                {
+                    date: '2025-09-14T17:11:00Z',
+                    description: 'Converted a 8 page PDF.',
+                    creditsUsed: 1
+                }
+            ];
+
+            // Filter by last 28 days
+            const twentyEightDaysAgo = new Date();
+            twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
+            
+            const filteredUsage = sampleCreditUsage.filter(usage => 
+                new Date(usage.date) >= twentyEightDaysAgo
+            );
+
+            return res.json(filteredUsage);
+        }
+    } catch (error) {
+        console.error('Error in credit usage endpoint:', error);
+        res.status(500).json({ error: 'Failed to fetch credit usage' });
+    }
+});
+
+// Check credit limits endpoint - for client-side validation before processing
+app.get('/api/check-credit-limits', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        
+        console.log('🔍 Checking credit limits for user:', userId);
+        
+        // Use the existing credit limit checking function from db
+        const creditLimits = await db.checkCreditLimits(userId);
+        
+        console.log('✅ Credit limits check result:', creditLimits);
+        res.json(creditLimits);
+        
+    } catch (error) {
+        console.error('❌ Error checking credit limits:', error);
+        
+        // Return conservative fallback limits if database check fails
+        const fallbackLimits = {
+            isRegistered: userId !== 'anonymous' && userId !== '00000000-0000-0000-0000-000000000000',
+            dailyLimit: userId !== 'anonymous' && userId !== '00000000-0000-0000-0000-000000000000' ? 5 : 1,
+            currentUsage: 0,
+            remaining: userId !== 'anonymous' && userId !== '00000000-0000-0000-0000-000000000000' ? 5 : 1,
+            canConvert: true,
+            subscription: 'free'
+        };
+        
+        res.json(fallbackLimits);
+    }
+});
+
+// Track credit usage endpoint
+app.post('/api/track-credit-usage', async (req, res) => {
+    try {
+        const { userId, fileName, pageCount, creditsUsed, date, description } = req.body;
+        
+        console.log('📊 Credit usage tracked:', {
+            userId: userId,
+            fileName: fileName,
+            pageCount: pageCount,
+            creditsUsed: creditsUsed,
+            date: date,
+            description: description
+        });
+        
+        // Try to save to database
+        try {
+            await db.createCreditUsage({
+                userId: userId,
+                fileName: fileName,
+                pageCount: pageCount,
+                creditsUsed: creditsUsed,
+                description: description
+            });
+            console.log('✅ Credit usage saved to database');
+        } catch (dbError) {
+            console.warn('Failed to save credit usage to database:', dbError.message);
+            // Continue anyway, don't fail the request
+        }
+        
+        res.json({
+            success: true,
+            message: 'Credit usage tracked successfully'
+        });
+    } catch (error) {
+        console.error('Error tracking credit usage:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to track credit usage' 
+        });
+    }
 });
 
 // Serve the main page

@@ -150,6 +150,29 @@ class SmartStatementConverter {
             return;
         }
 
+        // Check credit limits before processing
+        console.log('🔍 Checking credit limits before processing...');
+        try {
+            const creditCheck = await this.checkCreditLimitsBeforeProcessing();
+            console.log('🔍 Credit check result:', creditCheck);
+            
+            if (!creditCheck.canConvert) {
+                const message = creditCheck.isRegistered 
+                    ? `Daily limit reached! You've used ${creditCheck.currentUsage}/${creditCheck.dailyLimit} conversions today. ${creditCheck.subscription === 'free' ? 'Upgrade to get more credits!' : ''}`
+                    : `Daily limit reached! Anonymous users get ${creditCheck.dailyLimit} conversion per day. Register for ${creditCheck.isRegistered ? '5' : 'more'} daily conversions!`;
+                
+                console.log('❌ Credit limit exceeded, showing error message');
+                this.showNotification(`⚠️ ${message}`, 'error', 6000);
+                return;
+            }
+            console.log('✅ Credit check passed, proceeding with processing');
+        } catch (error) {
+            console.error('❌ Credit check failed:', error);
+            // If credit check fails, show error and don't proceed
+            this.showNotification('⚠️ Unable to verify credit limits. Please try again.', 'error', 6000);
+            return;
+        }
+
         // Show success message for valid files
         if (validFiles.length > 0) {
             this.showNotification(
@@ -240,6 +263,50 @@ class SmartStatementConverter {
         return true;
     }
 
+    async checkCreditLimitsBeforeProcessing() {
+        try {
+            const userId = this.currentUser ? this.currentUser.id : 'anonymous';
+            console.log('🔍 Checking credit limits for userId:', userId);
+            
+            const response = await fetch(`/api/check-credit-limits?userId=${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('🔍 Credit limits API response status:', response.status);
+
+            if (response.ok) {
+                const creditLimits = await response.json();
+                console.log('🔍 Credit limits API response:', creditLimits);
+                return creditLimits;
+            } else {
+                console.warn('🔍 Credit limits API failed, using conservative fallback');
+                // If API fails, return conservative limits that prevent conversion
+                return {
+                    isRegistered: !!this.currentUser,
+                    dailyLimit: this.currentUser ? 5 : 1,
+                    currentUsage: this.currentUser ? 5 : 1, // Assume at limit to be safe
+                    remaining: 0,
+                    canConvert: false, // Don't allow conversion if API fails
+                    subscription: 'free'
+                };
+            }
+        } catch (error) {
+            console.error('❌ Error checking credit limits:', error);
+            // If check fails, don't allow conversion to be safe
+            return {
+                isRegistered: !!this.currentUser,
+                dailyLimit: this.currentUser ? 5 : 1,
+                currentUsage: this.currentUser ? 5 : 1, // Assume at limit to be safe
+                remaining: 0,
+                canConvert: false, // Don't allow conversion if check fails
+                subscription: 'free'
+            };
+        }
+    }
+
     async processFiles(files) {
         this.isProcessing = true;
         this.showLoading(true);
@@ -277,12 +344,29 @@ class SmartStatementConverter {
                 } catch (fileError) {
                     console.error(`Error processing ${file.name}:`, fileError);
                     this.hideLoadingNotification('file-processing');
+                    
+                    // Check if this is a credit limit error
+                    if (fileError.message.includes('Daily limit reached')) {
+                        // Stop processing immediately and show temporary error message
+                        this.isProcessing = false;
+                        this.showLoading(false);
+                        this.hideLoadingNotification('file-processing');
+                        
+                        // Show temporary error notification that disappears after 6 seconds
+                        this.showNotification(
+                            `⚠️ ${fileError.message}`, 
+                            'error', 
+                            6000
+                        );
+                        return; // Exit the function immediately
+                    }
+                    
                     this.showNotification(
                         `❌ Failed to process ${file.name}: ${fileError.message}`, 
                         'error', 
                         5000
                     );
-                    // Continue with other files
+                    // Continue with other files for non-limit errors
                 }
             }
             
@@ -333,10 +417,24 @@ class SmartStatementConverter {
             
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error || 'Conversion failed');
+                
+                // Handle credit limit errors specially
+                if (response.status === 403 && error.code === 'CREDIT_LIMIT_EXCEEDED') {
+                    const details = error.details || {};
+                    const message = details.isRegistered 
+                        ? `Daily limit reached! You've used ${details.currentUsage}/${details.dailyLimit} conversions today. ${details.subscription === 'free' ? 'Upgrade to get more credits!' : ''}`
+                        : `Daily limit reached! Anonymous users get ${details.dailyLimit} conversion per day. Register for ${details.isRegistered ? '5' : 'more'} daily conversions!`;
+                    
+                    throw new Error(message);
+                }
+                
+                throw new Error(error.error || error.message || 'Conversion failed');
             }
             
             const result = await response.json();
+            
+            // Track credit usage for successful conversion
+            await this.trackCreditUsage(file, result);
             
             // Use smart features to enhance the result
             const enhancedResult = this.enhanceWithSmartFeatures(result, file);
@@ -955,9 +1053,14 @@ class SmartStatementConverter {
             console.log('🔄 Register link found:', !!registerLink);
             
             if (loginLink && registerLink) {
-                // Create user menu HTML
+                // Create user menu HTML with credit display
+                const credits = this.currentUser ? 5 : 1; // 5 for registered, 1 for anonymous
                 const userMenuHTML = `
                     <div class="user-menu" style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.875rem; font-weight: 600;">
+                            <span style="background: rgba(255,255,255,0.2); width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">🎯</span>
+                            <span>${credits} credits</span>
+                        </div>
                         <a href="/profile.html" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; cursor: pointer; padding: 0.25rem; border-radius: 6px; transition: background-color 0.2s ease;" onmouseover="this.style.backgroundColor='#f3f4f6'" onmouseout="this.style.backgroundColor='transparent'">
                             <div style="width: 32px; height: 32px; border-radius: 50%; background: #4F46E5; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
                                 ${this.currentUser.name.charAt(0).toUpperCase()}
@@ -1108,8 +1211,7 @@ class SmartStatementConverter {
         const planNames = {
             'free': 'Free Plan',
             'starter': 'Starter Plan',
-            'professional': 'Professional Plan',
-            'enterprise': 'Enterprise Plan'
+            'professional': 'Professional Plan'
         };
         return planNames[planType] || 'Free Plan';
     }
@@ -1224,10 +1326,137 @@ class SmartStatementConverter {
     initializeProfilePage() {
         console.log('🔄 Initializing profile page');
         this.checkAuthStatus();
-        // Load conversion history after auth check
+        // Load conversion history and credit usage after auth check
         setTimeout(() => {
+            console.log('🔄 About to call loadConversionHistory and loadCreditUsage');
             this.loadConversionHistory();
+            this.loadCreditUsage();
         }, 500);
+    }
+
+    // Load and display credit usage information
+    async loadCreditUsage() {
+        try {
+            console.log('🔄 loadCreditUsage called');
+            const creditsAvailableEl = document.getElementById('creditsAvailable');
+            const creditTypeEl = document.getElementById('creditType');
+
+            console.log('🔄 Found elements:', { creditsAvailableEl: !!creditsAvailableEl, creditTypeEl: !!creditTypeEl });
+
+            if (!creditsAvailableEl || !creditTypeEl) {
+                console.log('❌ Elements not found, exiting loadCreditUsage');
+                return; // Elements not found, probably not on profile page
+            }
+
+            // Get real credit limits from API
+            const creditLimits = await this.checkCreditLimitsBeforeProcessing();
+            
+            // Determine user type
+            let userType, typeBadgeClass;
+            if (this.currentUser) {
+                userType = 'Registered User';
+                typeBadgeClass = 'registered';
+            } else {
+                userType = 'Anonymous User';
+                typeBadgeClass = 'anonymous';
+            }
+
+            // Update credit summary with real data
+            creditsAvailableEl.textContent = creditLimits.remaining;
+            creditTypeEl.innerHTML = `<span class="type-badge ${typeBadgeClass}">${userType}</span>`;
+
+            console.log('✅ Updated credit display:', {
+                remaining: creditLimits.remaining,
+                dailyLimit: creditLimits.dailyLimit,
+                currentUsage: creditLimits.currentUsage
+            });
+
+        } catch (error) {
+            console.error('Error loading credit usage:', error);
+            // Fallback to default values
+            const creditsAvailableEl = document.getElementById('creditsAvailable');
+            const creditTypeEl = document.getElementById('creditType');
+            
+            if (creditsAvailableEl && creditTypeEl) {
+                const fallbackCredits = this.currentUser ? 5 : 1;
+                const userType = this.currentUser ? 'Registered User' : 'Anonymous User';
+                const typeBadgeClass = this.currentUser ? 'registered' : 'anonymous';
+                
+                creditsAvailableEl.textContent = fallbackCredits;
+                creditTypeEl.innerHTML = `<span class="type-badge ${typeBadgeClass}">${userType}</span>`;
+            }
+        }
+    }
+
+    // Display credit usage in the table
+    displayCreditUsage(creditUsage) {
+        const creditUsageTableEl = document.getElementById('creditUsageTable');
+        const emptyCreditsEl = document.getElementById('emptyCredits');
+
+        if (!creditUsage || creditUsage.length === 0) {
+            this.displayEmptyCredits();
+            return;
+        }
+
+        creditUsageTableEl.innerHTML = '';
+        emptyCreditsEl.style.display = 'none';
+
+        creditUsage.forEach(usage => {
+            const row = document.createElement('tr');
+            const date = new Date(usage.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            row.innerHTML = `
+                <td>${date}</td>
+                <td>${usage.description}</td>
+                <td><span class="credit-used">${usage.creditsUsed}</span></td>
+            `;
+            creditUsageTableEl.appendChild(row);
+        });
+    }
+
+    // Display empty state for credits
+    displayEmptyCredits() {
+        const creditUsageTableEl = document.getElementById('creditUsageTable');
+        const emptyCreditsEl = document.getElementById('emptyCredits');
+
+        if (creditUsageTableEl) creditUsageTableEl.innerHTML = '';
+        if (emptyCreditsEl) emptyCreditsEl.style.display = 'block';
+    }
+
+    // Track credit usage for conversions
+    async trackCreditUsage(file, result) {
+        try {
+            const userId = this.currentUser ? this.currentUser.id : 'anonymous';
+            const pageCount = result.pageCount || 1;
+            
+            const creditUsageData = {
+                userId: userId,
+                fileName: file.name,
+                pageCount: pageCount,
+                creditsUsed: 1, // 1 credit per conversion regardless of page count
+                date: new Date().toISOString(),
+                description: `Converted a ${pageCount} page PDF.`
+            };
+
+            // Send to backend to store credit usage
+            await fetch('/api/track-credit-usage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(creditUsageData)
+            });
+
+        } catch (error) {
+            console.warn('Failed to track credit usage:', error);
+            // Don't throw error as this shouldn't block the conversion
+        }
     }
     
     async saveSubscriptionToSupabase() {
@@ -1332,29 +1561,69 @@ class SmartStatementConverter {
             if (emptyHistory) emptyHistory.style.display = 'none';
             
             if (historyGrid) {
-                historyGrid.innerHTML = history.map(conv => `
-                    <div class="history-item" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <div class="history-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <h4 style="margin: 0; color: #374151; font-size: 1rem;">${conv.filename}</h4>
-                            <span style="color: #6B7280; font-size: 0.875rem;">${new Date(conv.timestamp).toLocaleDateString()}</span>
-                        </div>
-                        <div class="history-details" style="display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.875rem; color: #6B7280;">
-                            <span>📊 ${conv.transactionCount} transactions</span>
-                            <span>📁 ${(conv.fileSize / 1024).toFixed(1)} KB</span>
-                        </div>
-                        <div class="history-actions" style="display: flex; gap: 0.5rem;">
-                            <button onclick="app.viewConversion('${conv.id}')" class="btn-primary" style="padding: 0.5rem 1rem; background: #4F46E5; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem;">
-                                View Details
-                            </button>
-                            <button onclick="app.downloadHistoryCSV('${conv.id}')" class="btn-secondary" style="padding: 0.5rem 1rem; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; font-size: 0.875rem;">
-                                Download CSV
-                            </button>
-                            <button onclick="app.deleteConversion('${conv.id}')" class="btn-danger" style="padding: 0.5rem 1rem; background: #EF4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem;">
-                                Delete
-                            </button>
-                        </div>
+                historyGrid.innerHTML = `
+                    <div class="table-container" style="overflow-x: auto; margin: 1rem 0; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <table class="history-table" style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-right: 1px solid #e2e8f0;">Filename</th>
+                                    <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-right: 1px solid #e2e8f0;">Date</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e2e8f0;">Transactions</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e2e8f0;">File Size</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151; border-right: 1px solid #e2e8f0;">Credits Used</th>
+                                    <th style="padding: 1rem; text-align: center; font-weight: 600; color: #374151;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${history.map((conv, index) => `
+                                    <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 1rem; border-right: 1px solid #e2e8f0; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${conv.filename}">
+                                            <span style="color: #374151; font-weight: 500;">${conv.filename}</span>
+                                        </td>
+                                        <td style="padding: 1rem; border-right: 1px solid #e2e8f0; color: #6b7280;">
+                                            ${new Date(conv.timestamp).toLocaleDateString('en-US', { 
+                                                year: 'numeric', 
+                                                month: 'short', 
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </td>
+                                        <td style="padding: 1rem; border-right: 1px solid #e2e8f0; text-align: center;">
+                                            <span style="background: #dbeafe; color: #1d4ed8; padding: 0.25rem 0.5rem; border-radius: 12px; font-weight: 500;">
+                                                ${conv.transactionCount}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 1rem; border-right: 1px solid #e2e8f0; text-align: center; color: #6b7280;">
+                                            ${(conv.fileSize / 1024).toFixed(1)} KB
+                                        </td>
+                                        <td style="padding: 1rem; border-right: 1px solid #e2e8f0; text-align: center;">
+                                            <span style="background: #fef3c7; color: #d97706; padding: 0.25rem 0.5rem; border-radius: 12px; font-weight: 500;">
+                                                1
+                                            </span>
+                                        </td>
+                                        <td style="padding: 1rem; text-align: center;">
+                                            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+                                                <button onclick="app.viewConversion('${conv.id}')" 
+                                                        style="padding: 0.375rem 0.75rem; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 500;">
+                                                    View
+                                                </button>
+                                                <button onclick="app.downloadHistoryCSV('${conv.id}')" 
+                                                        style="padding: 0.375rem 0.75rem; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 500;">
+                                                    Download
+                                                </button>
+                                                <button onclick="app.deleteConversion('${conv.id}')" 
+                                                        style="padding: 0.375rem 0.75rem; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: 500;">
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
                     </div>
-                `).join('');
+                `;
             }
             
             if (historySection) historySection.style.display = 'block';
@@ -1618,20 +1887,17 @@ class SmartStatementConverter {
     updatePaymentModalContent(plan, billingCycle) {
         const planNames = {
             starter: 'Starter Plan',
-            professional: 'Professional Plan',
-            business: 'Business Plan'
+            professional: 'Professional Plan'
         };
 
         const planDescriptions = {
             starter: '400 pages per month',
-            professional: '1,000 pages per month',
-            business: '4,000 pages per month'
+            professional: '1,000 pages per month'
         };
 
         const prices = {
             starter: { monthly: '$30/month', annual: '$180/year' },
-            professional: { monthly: '$60/month', annual: '$360/year' },
-            business: { monthly: '$99/month', annual: '$599/year' }
+            professional: { monthly: '$60/month', annual: '$360/year' }
         };
 
         document.getElementById('selectedPlanName').textContent = planNames[plan];
@@ -1729,8 +1995,7 @@ class SmartStatementConverter {
         const planName = document.getElementById('selectedPlanName').textContent;
         const planMap = {
             'Starter Plan': 'starter',
-            'Professional Plan': 'professional',
-            'Business Plan': 'business'
+            'Professional Plan': 'professional'
         };
         return planMap[planName] || 'starter';
     }
@@ -1787,9 +2052,6 @@ function showRegister() {
     }
 }
 
-function contactEnterprise() {
-    window.open('mailto:contact@smartstatementconverter.net?subject=Enterprise Inquiry', '_blank');
-}
 
 function contactSupport() {
     window.open('mailto:support@smartstatementconverter.net?subject=Support Request', '_blank');

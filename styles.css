@@ -1239,9 +1239,112 @@ body {
     background: rgba(255, 255, 255, 0.1);
 }
 
-/* Enterprise plan styling */
-.membership-card.enterprise-plan {
-    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+/* Credit Usage Section */
+.credit-usage-section {
+    margin: 2rem 0;
+}
+
+.credit-summary-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 2rem;
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.credit-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.credit-available {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.credit-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.credit-label {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.credit-type .type-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.type-badge.registered {
+    background: rgba(34, 197, 94, 0.3);
+}
+
+.type-badge.anonymous {
+    background: rgba(156, 163, 175, 0.3);
+}
+
+.credit-details h3 {
+    margin: 2rem 0 1rem 0;
+    color: #1f2937;
+    font-size: 1.5rem;
+}
+
+.credit-table-container {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.credit-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.credit-table th {
+    background: #f8fafc;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.credit-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+    color: #6b7280;
+}
+
+.credit-table tr:last-child td {
+    border-bottom: none;
+}
+
+.credit-table tr:hover {
+    background: #f9fafb;
+}
+
+.credit-used {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+.empty-credits {
+    padding: 2rem;
+    text-align: center;
+    color: #6b7280;
+    font-style: italic;
 }
 
 /* Responsive Design */

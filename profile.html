@@ -120,6 +120,25 @@
                 </div>
             </section>
 
+            <!-- Credit Usage Section -->
+            <section class="credit-usage-section">
+                <div class="section-header">
+                    <h2>🎯 Credit Usage</h2>
+                </div>
+                <div class="credit-summary-card">
+                    <div class="credit-info">
+                        <div class="credit-available">
+                            <span class="credit-number" id="creditsAvailable">Loading...</span>
+                            <span class="credit-label">credits available.</span>
+                        </div>
+                        <div class="credit-type" id="creditType">
+                            <span class="type-badge registered">Registered User</span>
+                        </div>
+                    </div>
+                </div>
+                
+            </section>
+
             <!-- Conversion History -->
             <section class="conversion-history">
                 <div class="section-header">
@@ -188,13 +207,27 @@
     <script src="js/error-handler.js?v=20250116-1"></script>
     <script src="js/progress-tracker.js?v=20250116-1"></script>
     <script src="js/analytics.js?v=20250116-1"></script>
-    <script src="script.js?v=20250116-2"></script>
+    <script src="script.js?v=20250921-8&debug=true"></script>
     
     <script>
         // Initialize profile page when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔄 DOM loaded, checking for app...');
+            console.log('🔄 window.app exists:', !!window.app);
+            console.log('🔄 initializeProfilePage exists:', !!(window.app && window.app.initializeProfilePage));
+            
             if (window.app && typeof window.app.initializeProfilePage === 'function') {
+                console.log('🔄 Calling initializeProfilePage...');
                 window.app.initializeProfilePage();
+            } else {
+                console.log('❌ initializeProfilePage not available, trying to initialize manually...');
+                // Try to call loadCreditUsage directly if app exists
+                if (window.app && window.app.loadCreditUsage) {
+                    setTimeout(() => {
+                        console.log('🔄 Calling loadCreditUsage directly...');
+                        window.app.loadCreditUsage();
+                    }, 1000);
+                }
             }
         });
     </script>

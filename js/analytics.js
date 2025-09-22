@@ -180,7 +180,7 @@ class Analytics {
         this.storeEvent(event);
         
         // Send to server in production
-        if (process.env.NODE_ENV === 'production') {
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
             this.sendEventToServer(event);
         }
     }
