@@ -1334,10 +1334,57 @@ class SmartStatementConverter {
         }, 500);
     }
 
+    // Get credit limits specifically for display purposes (more user-friendly fallbacks)
+    async getCreditLimitsForDisplay() {
+        try {
+            const userId = this.currentUser ? this.currentUser.id : 'anonymous';
+            console.log('🔍 Getting credit limits for display, userId:', userId);
+            
+            const response = await fetch(`/api/check-credit-limits?userId=${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log('🔍 Credit limits API response status:', response.status);
+
+            if (response.ok) {
+                const creditLimits = await response.json();
+                console.log('🔍 Credit limits API response:', creditLimits);
+                return creditLimits;
+            } else {
+                console.warn('🔍 Credit limits API failed, using display fallback');
+                // For display purposes, show optimistic limits rather than blocking
+                return {
+                    isRegistered: !!this.currentUser,
+                    dailyLimit: this.currentUser ? 5 : 1,
+                    currentUsage: 0, // Assume no usage if API fails
+                    remaining: this.currentUser ? 5 : 1, // Show full limit for display
+                    canConvert: true,
+                    subscription: 'free'
+                };
+            }
+        } catch (error) {
+            console.error('❌ Error fetching credit limits for display:', error);
+            // For display purposes, show optimistic fallback
+            return {
+                isRegistered: !!this.currentUser,
+                dailyLimit: this.currentUser ? 5 : 1,
+                currentUsage: 0,
+                remaining: this.currentUser ? 5 : 1,
+                canConvert: true,
+                subscription: 'free'
+            };
+        }
+    }
+
     // Load and display credit usage information
     async loadCreditUsage() {
         try {
             console.log('🔄 loadCreditUsage called');
+            console.log('🔄 Current user status:', !!this.currentUser, this.currentUser?.email);
+            
             const creditsAvailableEl = document.getElementById('creditsAvailable');
             const creditTypeEl = document.getElementById('creditType');
 
@@ -1348,8 +1395,20 @@ class SmartStatementConverter {
                 return; // Elements not found, probably not on profile page
             }
 
-            // Get real credit limits from API
-            const creditLimits = await this.checkCreditLimitsBeforeProcessing();
+            // Ensure user auth is checked first
+            if (!this.currentUser) {
+                console.log('🔄 No current user, checking auth status first...');
+                this.checkAuthStatus();
+                // If still no user after auth check, use anonymous
+                if (!this.currentUser) {
+                    console.log('🔄 Still no user after auth check, proceeding as anonymous');
+                }
+            }
+
+            // Get real credit limits from API (using display-friendly version)
+            console.log('🔄 About to call getCreditLimitsForDisplay...');
+            const creditLimits = await this.getCreditLimitsForDisplay();
+            console.log('🔄 Credit limits response:', creditLimits);
             
             // Determine user type
             let userType, typeBadgeClass;
@@ -1372,16 +1431,22 @@ class SmartStatementConverter {
             });
 
         } catch (error) {
-            console.error('Error loading credit usage:', error);
+            console.error('❌ Error loading credit usage:', error);
             // Fallback to default values
             const creditsAvailableEl = document.getElementById('creditsAvailable');
             const creditTypeEl = document.getElementById('creditType');
             
             if (creditsAvailableEl && creditTypeEl) {
+                // Ensure user auth is checked for fallback
+                if (!this.currentUser) {
+                    this.checkAuthStatus();
+                }
+                
                 const fallbackCredits = this.currentUser ? 5 : 1;
                 const userType = this.currentUser ? 'Registered User' : 'Anonymous User';
                 const typeBadgeClass = this.currentUser ? 'registered' : 'anonymous';
                 
+                console.log('🔄 Setting fallback credits:', fallbackCredits, 'for user type:', userType);
                 creditsAvailableEl.textContent = fallbackCredits;
                 creditTypeEl.innerHTML = `<span class="type-badge ${typeBadgeClass}">${userType}</span>`;
             }
