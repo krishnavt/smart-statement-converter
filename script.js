@@ -1,5 +1,5 @@
 // Smart Statement Converter - Main JavaScript (Lightweight)
-console.log('🔥 LATEST SCRIPT VERSION LOADED - BUILD 2025-01-16-v3 🔥');
+console.log('🔥 LATEST SCRIPT VERSION LOADED - BUILD 2025-09-22-v1 🔥');
 
 class SmartStatementConverter {
     constructor() {
