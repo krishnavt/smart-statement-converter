@@ -1,3 +1,4 @@
-// This is just an entrypoint for Vercel deployment
-// All actual functionality is in api/vercel-server.js
-module.exports = require('./api/vercel-server.js');
+// Vercel entrypoint that imports express
+const app = require('./api/vercel-server.js');
+
+module.exports = app;
