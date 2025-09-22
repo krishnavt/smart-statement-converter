@@ -1157,6 +1157,14 @@ app.post('/api/track-credit-usage', async (req, res) => {
     try {
         const { userId, fileName, pageCount, creditsUsed, date, description } = req.body;
         
+        // Debug: Check if function exists
+        console.log('🔍 trackCreditUsage function exists:', typeof db.trackCreditUsage);
+        console.log('🔍 Request data:', { userId, fileName, pageCount, creditsUsed });
+        
+        if (typeof db.trackCreditUsage !== 'function') {
+            throw new Error('trackCreditUsage function not available');
+        }
+        
         const result = await db.trackCreditUsage({
             userId,
             fileName,
@@ -1169,7 +1177,11 @@ app.post('/api/track-credit-usage', async (req, res) => {
         res.json({ success: true, result });
     } catch (error) {
         console.error('Credit usage tracking error:', error);
-        res.status(500).json({ error: 'Failed to track credit usage' });
+        res.status(500).json({ 
+            error: 'Failed to track credit usage', 
+            details: error.message,
+            functionExists: typeof db.trackCreditUsage 
+        });
     }
 });
 
