@@ -19,6 +19,21 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Content Security Policy for Google Sign-In
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', 
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://js.stripe.com; " +
+        "style-src 'self' 'unsafe-inline' https://accounts.google.com; " +
+        "frame-src 'self' https://accounts.google.com https://js.stripe.com; " +
+        "connect-src 'self' https://accounts.google.com https://api.stripe.com; " +
+        "img-src 'self' data: https:; " +
+        "font-src 'self' data:; " +
+        "frame-ancestors 'self' https://accounts.google.com;"
+    );
+    next();
+});
+
 // Manual static file serving for Vercel
 const serveStaticFile = (req, res, next) => {
     const filePath = req.path;
@@ -239,6 +254,7 @@ app.get('/api/login', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Smart Statement Converter</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline'; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:; frame-ancestors 'none';">
     <link rel="stylesheet" href="/styles.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -410,6 +426,7 @@ app.get('/api/register', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Smart Statement Converter</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline'; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:; frame-ancestors 'none';">
     <link rel="stylesheet" href="/styles.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
