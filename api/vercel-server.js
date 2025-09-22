@@ -31,23 +31,27 @@ const serveStaticFile = (req, res, next) => {
     let fullPath;
     let contentType;
     
+    // Remove leading slash for path.join
+    const cleanPath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+    
     if (filePath.endsWith('.css')) {
-        fullPath = path.join(__dirname, '..', filePath);
+        fullPath = path.join(__dirname, '..', cleanPath);
         contentType = 'text/css';
     } else if (filePath.endsWith('.js')) {
-        fullPath = path.join(__dirname, '..', filePath);
+        fullPath = path.join(__dirname, '..', cleanPath);
         contentType = 'application/javascript';
     } else if (filePath.endsWith('.json')) {
-        fullPath = path.join(__dirname, '..', filePath);
+        fullPath = path.join(__dirname, '..', cleanPath);
         contentType = 'application/json';
     } else if (filePath.match(/\.(png|jpg|jpeg|gif|ico|svg)$/)) {
-        fullPath = path.join(__dirname, '..', filePath);
+        fullPath = path.join(__dirname, '..', cleanPath);
         contentType = 'image/' + filePath.split('.').pop();
     } else {
         return next();
     }
     
     try {
+        console.log('Trying to serve:', fullPath, 'exists:', fs.existsSync(fullPath));
         if (fs.existsSync(fullPath)) {
             const fileContent = fs.readFileSync(fullPath);
             res.setHeader('Content-Type', contentType);
@@ -57,6 +61,7 @@ const serveStaticFile = (req, res, next) => {
             next();
         }
     } catch (error) {
+        console.log('Static file error:', error.message);
         next();
     }
 };
