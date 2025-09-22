@@ -25,11 +25,12 @@ app.use((req, res, next) => {
         "default-src 'self'; " +
         "script-src 'self' 'unsafe-inline' https://accounts.google.com https://js.stripe.com; " +
         "style-src 'self' 'unsafe-inline' https://accounts.google.com; " +
+        "style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; " +
         "frame-src 'self' https://accounts.google.com https://js.stripe.com; " +
         "connect-src 'self' https://accounts.google.com https://api.stripe.com; " +
         "img-src 'self' data: https:; " +
         "font-src 'self' data:; " +
-        "frame-ancestors 'self' https://accounts.google.com;"
+        "frame-ancestors 'self';"
     );
     next();
 });
@@ -254,7 +255,7 @@ app.get('/api/login', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Smart Statement Converter</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline'; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:; frame-ancestors 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:;">
     <link rel="stylesheet" href="/styles.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -330,8 +331,8 @@ app.get('/api/login', (req, res) => {
             .then(data => {
                 if (data.success) {
                     console.log('✅ Authentication successful:', data.user);
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
+                    localStorage.setItem('userToken', data.token);
                     window.location.href = '/';
                 } else {
                     console.error('❌ Authentication failed:', data.error);
@@ -426,7 +427,7 @@ app.get('/api/register', (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Smart Statement Converter</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline'; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:; frame-ancestors 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:;">
     <link rel="stylesheet" href="/styles.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -502,8 +503,8 @@ app.get('/api/register', (req, res) => {
             .then(data => {
                 if (data.success) {
                     console.log('✅ Authentication successful:', data.user);
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
+                    localStorage.setItem('userToken', data.token);
                     window.location.href = '/';
                 } else {
                     console.error('❌ Authentication failed:', data.error);
