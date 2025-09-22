@@ -800,6 +800,43 @@ app.get('/api/subscription/:userId', async (req, res) => {
     }
 });
 
+// Debug endpoint to check UUID conversion
+app.get('/api/debug-user', async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        
+        const crypto = require('crypto');
+        const hash = crypto.createHash('md5').update(`google_${userId}`).digest('hex');
+        const uuid = [
+            hash.substr(0, 8),
+            hash.substr(8, 4),
+            '4' + hash.substr(12, 3),
+            ((parseInt(hash.substr(16, 1), 16) & 3) | 8).toString(16) + hash.substr(17, 3),
+            hash.substr(20, 12)
+        ].join('-');
+        
+        // Check if user exists with this UUID
+        const user = await db.getUserById(userId);
+        
+        // Check conversions with this UUID
+        const conversions = await db.getConversionsByUserId(userId);
+        
+        res.json({
+            googleId: userId,
+            generatedUuid: uuid,
+            userExists: !!user,
+            conversionsCount: conversions?.length || 0,
+            conversions: conversions || []
+        });
+    } catch (error) {
+        console.error('Debug error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Check credit limits endpoint
 app.get('/api/check-credit-limits', async (req, res) => {
     try {
