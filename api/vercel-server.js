@@ -347,7 +347,6 @@ app.get('/api/login', (req, res) => {
                         google.accounts.id.renderButton(signInDiv, { 
                             theme: 'outline', 
                             size: 'large',
-                            width: '100%',
                             text: 'signin_with'
                         });
                         
@@ -519,7 +518,6 @@ app.get('/api/register', (req, res) => {
                         google.accounts.id.renderButton(signInDiv, { 
                             theme: 'outline', 
                             size: 'large',
-                            width: '100%',
                             text: 'signup_with'
                         });
                         
@@ -577,11 +575,15 @@ app.get('/api/register', (req, res) => {
 // Google OAuth endpoint
 app.post('/api/auth/google', async (req, res) => {
     try {
+        console.log('🔍 Google OAuth request received');
         const { credential } = req.body;
         
         if (!credential) {
+            console.error('❌ Missing Google credential in request');
             return res.status(400).json({ error: 'Missing Google credential' });
         }
+        
+        console.log('🔑 Verifying Google token...');
         
         // Verify Google token
         const { OAuth2Client } = require('google-auth-library');
@@ -591,6 +593,8 @@ app.post('/api/auth/google', async (req, res) => {
             idToken: credential,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
+        
+        console.log('✅ Google token verified successfully');
         
         const payload = ticket.getPayload();
         const userData = {
@@ -603,8 +607,16 @@ app.post('/api/auth/google', async (req, res) => {
             loginAt: new Date().toISOString()
         };
         
+        console.log('👤 User data extracted:', userData.email);
+        
         // Create or update user
-        await db.createUser(userData);
+        try {
+            await db.createUser(userData);
+            console.log('💾 User created/updated in database');
+        } catch (dbError) {
+            console.error('❌ Database error:', dbError.message);
+            // Continue with authentication even if DB fails
+        }
         
         // Create JWT token
         const jwt = require('jsonwebtoken');
@@ -619,6 +631,8 @@ app.post('/api/auth/google', async (req, res) => {
             { expiresIn: '7d' }
         );
         
+        console.log('🎟️ JWT token created successfully');
+        
         res.json({
             success: true,
             user: userData,
@@ -626,7 +640,13 @@ app.post('/api/auth/google', async (req, res) => {
             message: 'Authentication successful'
         });
     } catch (error) {
-        res.status(401).json({ error: 'Authentication failed' });
+        console.error('❌ Google OAuth error:', error.message);
+        console.error('Error details:', error);
+        res.status(401).json({ 
+            error: 'Authentication failed',
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
