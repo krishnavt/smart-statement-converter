@@ -748,20 +748,40 @@ app.post('/api/create-payment-intent', async (req, res) => {
 app.get('/api/subscription/:userId', async (req, res) => {
     try {
         const userId = req.params.userId;
-        const subscription = await db.getSubscriptionByUserId(userId);
+        console.log('💳 Fetching subscription for userId:', userId);
         
-        if (!subscription) {
+        // Check if database is available
+        if (!db || typeof db.getSubscriptionByUserId !== 'function') {
+            console.warn('⚠️ Database not available, returning default subscription');
             return res.json({
-                planType: 'anonymous',
-                status: 'inactive',
+                planType: 'free',
+                status: 'active',
                 creditsRemaining: 1
             });
         }
         
+        const subscription = await db.getSubscriptionByUserId(userId);
+        
+        if (!subscription) {
+            console.log('💳 No subscription found, returning default');
+            return res.json({
+                planType: 'free',
+                status: 'active',
+                creditsRemaining: 1
+            });
+        }
+        
+        console.log('💳 Subscription found:', subscription.planType);
         res.json(subscription);
     } catch (error) {
-        console.error('Subscription fetch error:', error);
-        res.status(500).json({ error: 'Failed to fetch subscription' });
+        console.error('❌ Subscription fetch error:', error.message);
+        console.error('Error details:', error);
+        // Return default subscription instead of error
+        res.json({
+            planType: 'free',
+            status: 'active',
+            creditsRemaining: 1
+        });
     }
 });
 
@@ -807,11 +827,22 @@ app.post('/api/track-credit-usage', async (req, res) => {
 app.get('/api/history', async (req, res) => {
     try {
         const userId = req.query.userId || 'anonymous';
+        console.log('📊 Fetching history for userId:', userId);
+        
+        // Check if database is available
+        if (!db || typeof db.getConversionHistory !== 'function') {
+            console.warn('⚠️ Database not available, returning empty history');
+            return res.json([]);
+        }
+        
         const history = await db.getConversionHistory(userId);
+        console.log('📊 History fetched successfully, count:', history?.length || 0);
         res.json(history || []);
     } catch (error) {
-        console.error('History fetch error:', error);
-        res.status(500).json({ error: 'Failed to fetch history' });
+        console.error('❌ History fetch error:', error.message);
+        console.error('Error details:', error);
+        // Return empty array instead of error to prevent frontend issues
+        res.json([]);
     }
 });
 
@@ -941,6 +972,19 @@ function generateCSV(transactions) {
     
     return csvRows.join('\n');
 }
+
+// Analytics endpoint
+app.post('/api/analytics', async (req, res) => {
+    try {
+        console.log('📈 Analytics data received:', req.body);
+        // For now, just acknowledge the analytics data
+        // In the future, this could store analytics in a database
+        res.json({ success: true, message: 'Analytics data received' });
+    } catch (error) {
+        console.error('❌ Analytics error:', error.message);
+        res.status(500).json({ error: 'Failed to process analytics data' });
+    }
+});
 
 // Serve main pages
 app.get('/', (req, res) => {
