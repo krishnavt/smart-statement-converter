@@ -842,7 +842,7 @@ app.post('/api/track-credit-usage', async (req, res) => {
 app.get('/api/history', async (req, res) => {
     try {
         const userId = req.query.userId || 'anonymous';
-        console.log('📊 Fetching history for userId:', userId);
+        console.log('📊 Fetching history for userId (Google ID):', userId);
         
         // Check if database is available
         if (!db || typeof db.getConversionHistory !== 'function') {
@@ -850,8 +850,21 @@ app.get('/api/history', async (req, res) => {
             return res.json({ success: true, history: [] });
         }
         
+        // Convert Google ID to UUID for database lookup (for debugging)
+        const crypto = require('crypto');
+        const hash = crypto.createHash('md5').update(`google_${userId}`).digest('hex');
+        const uuid = [
+            hash.substr(0, 8),
+            hash.substr(8, 4),
+            '4' + hash.substr(12, 3),
+            ((parseInt(hash.substr(16, 1), 16) & 3) | 8).toString(16) + hash.substr(17, 3),
+            hash.substr(20, 12)
+        ].join('-');
+        console.log('📊 Converted Google ID to UUID:', uuid);
+        
         const history = await db.getConversionHistory(userId);
         console.log('📊 History fetched successfully, count:', history?.length || 0);
+        console.log('📊 History data:', JSON.stringify(history, null, 2));
         res.json({ success: true, history: history || [] });
     } catch (error) {
         console.error('❌ History fetch error:', error.message);
