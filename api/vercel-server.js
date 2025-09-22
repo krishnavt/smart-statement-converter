@@ -847,17 +847,17 @@ app.get('/api/history', async (req, res) => {
         // Check if database is available
         if (!db || typeof db.getConversionHistory !== 'function') {
             console.warn('⚠️ Database not available, returning empty history');
-            return res.json([]);
+            return res.json({ success: true, history: [] });
         }
         
         const history = await db.getConversionHistory(userId);
         console.log('📊 History fetched successfully, count:', history?.length || 0);
-        res.json(history || []);
+        res.json({ success: true, history: history || [] });
     } catch (error) {
         console.error('❌ History fetch error:', error.message);
         console.error('Error details:', error);
         // Return empty array instead of error to prevent frontend issues
-        res.json([]);
+        res.json({ success: true, history: [] });
     }
 });
 
