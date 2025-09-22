@@ -1,7 +1,7 @@
 // Service Worker for Smart Statement Converter PWA
-const CACHE_NAME = 'smart-statement-converter-v1';
-const STATIC_CACHE = 'static-v1';
-const DYNAMIC_CACHE = 'dynamic-v1';
+const CACHE_NAME = 'smart-statement-converter-v2';
+const STATIC_CACHE = 'static-v2';
+const DYNAMIC_CACHE = 'dynamic-v2';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
@@ -12,8 +12,7 @@ const STATIC_FILES = [
     '/script.js',
     '/js/ui-utils.js',
     '/manifest.json',
-    '/icons/icon-192x192.png',
-    '/icons/icon-512x512.png'
+    '/favicon.ico'
 ];
 
 // Install event - cache static files
