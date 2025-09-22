@@ -1290,9 +1290,11 @@ app.post('/api/convert', async (req, res) => {
                 // Clean up temp file
                 await fs.unlink(req.file.path);
                 
-                // Get user ID from request
-                const userId = req.body.userId || 'anonymous';
-                console.log('Processing PDF for user:', userId);
+                // Get user ID from request (check both body and query)
+                const userId = req.body.userId || req.query.userId || 'anonymous';
+                console.log('🔍 Processing PDF for user:', userId);
+                console.log('🔍 Request body:', req.body);
+                console.log('🔍 File info:', { name: req.file.originalname, size: req.file.size });
                 
                 // Process bank statement data
                 const processedData = processBankStatement(pdfData.text);
