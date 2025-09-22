@@ -3,7 +3,7 @@
   "functions": {
     "api/vercel-server.js": {
       "maxDuration": 30,
-      "includeFiles": ["script.js", "manifest.json", "sw.js", "styles.css", "favicon.ico"]
+      "includeFiles": "**"
     }
   },
   "routes": [
