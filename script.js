@@ -2158,6 +2158,10 @@ function initializeApp() {
         console.log('🚀 Main/Profile page detected, initializing SmartStatementConverter...');
         app = new SmartStatementConverter();
         
+        // Attach app to window for profile page access
+        window.app = app;
+        console.log('🔗 App attached to window.app');
+        
         if (isProfilePage) {
             console.log('🚀 Profile page detected, initializing profile...');
             app.initProfile();
@@ -2211,6 +2215,10 @@ SmartStatementConverter.prototype.initProfile = function() {
         console.log('🔄 User authenticated, loading profile data...');
         this.loadProfileData();
         this.loadConversionHistory();
+        
+        // Load credit usage for profile page
+        console.log('🔄 Loading credit usage...');
+        this.loadCreditUsage();
     } else {
         console.log('🔄 No user authenticated, redirecting to login...');
         // Show loading state while redirecting
