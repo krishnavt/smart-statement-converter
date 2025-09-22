@@ -2,33 +2,14 @@
   "version": 2,
   "functions": {
     "api/vercel-server.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": ["script.js", "manifest.json", "sw.js", "styles.css", "favicon.ico"]
     }
   },
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/vercel-server.js"
-    },
-    {
-      "src": "/script.js",
-      "dest": "/public/script.js"
-    },
-    {
-      "src": "/manifest.json",
-      "dest": "/public/manifest.json"
-    },
-    {
-      "src": "/sw.js",
-      "dest": "/public/sw.js"
-    },
-    {
-      "src": "/styles.css",
-      "dest": "/public/styles.css"
-    },
-    {
-      "src": "/favicon.ico",
-      "dest": "/public/favicon.ico"
     },
     {
       "src": "/(.*)",
