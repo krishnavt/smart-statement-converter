@@ -159,7 +159,7 @@ class SmartStatementConverter {
             if (!creditCheck.canConvert) {
                 const message = creditCheck.isRegistered 
                     ? `Daily limit reached! You've used ${creditCheck.currentUsage}/${creditCheck.dailyLimit} conversions today. ${creditCheck.subscription === 'free' ? 'Upgrade to get more credits!' : ''}`
-                    : `Daily limit reached! Anonymous users get ${creditCheck.dailyLimit} conversion per day. Register for ${creditCheck.isRegistered ? '5' : 'more'} daily conversions!`;
+                    : `Daily limit reached! Anonymous users get ${creditCheck.dailyLimit} conversions per day. Register for ${creditCheck.isRegistered ? '100' : 'more'} daily conversions!`;
                 
                 console.log('❌ Credit limit exceeded, showing error message');
                 this.showNotification(`⚠️ ${message}`, 'error', 6000);
@@ -279,7 +279,7 @@ class SmartStatementConverter {
                 // If API fails, return conservative limits that prevent conversion
                 return {
                     isRegistered: !!this.currentUser,
-                    dailyLimit: this.currentUser ? 5 : 1,
+                    dailyLimit: this.currentUser ? 100 : 50,  // TESTING LIMITS - was 5 : 1
                     currentUsage: this.currentUser ? 5 : 1, // Assume at limit to be safe
                     remaining: 0,
                     canConvert: false, // Don't allow conversion if API fails
@@ -415,7 +415,7 @@ class SmartStatementConverter {
                     const details = error.details || {};
                     const message = details.isRegistered 
                         ? `Daily limit reached! You've used ${details.currentUsage}/${details.dailyLimit} conversions today. ${details.subscription === 'free' ? 'Upgrade to get more credits!' : ''}`
-                        : `Daily limit reached! Anonymous users get ${details.dailyLimit} conversion per day. Register for ${details.isRegistered ? '5' : 'more'} daily conversions!`;
+                        : `Daily limit reached! Anonymous users get ${details.dailyLimit} conversions per day. Register for ${details.isRegistered ? '100' : 'more'} daily conversions!`;
                     
                     throw new Error(message);
                 }
@@ -1350,7 +1350,7 @@ class SmartStatementConverter {
                 // For display purposes, show optimistic limits rather than blocking
                 return {
                     isRegistered: !!this.currentUser,
-                    dailyLimit: this.currentUser ? 5 : 1,
+                    dailyLimit: this.currentUser ? 100 : 50,  // TESTING LIMITS - was 5 : 1
                     currentUsage: 0, // Assume no usage if API fails
                     remaining: this.currentUser ? 5 : 1, // Show full limit for display
                     canConvert: true,
