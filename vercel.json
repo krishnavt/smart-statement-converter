@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/vercel-server.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "{*.html,*.css,*.js,*.json,js/**,css/**,images/**,manifest.json,sw.js}"
     }
   },
   "routes": [
