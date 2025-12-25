@@ -1411,11 +1411,20 @@ app.post('/api/convert', createUploadRateLimiter(), validateFileUpload, sanitize
                     conversionId: savedConversion?.id || null
                 });
             } catch (error) {
+                console.error('❌ PDF Processing Error:', error);
+                console.error('❌ Error name:', error.name);
+                console.error('❌ Error message:', error.message);
+                console.error('❌ Error stack:', error.stack);
+
                 // Clean up temp file on error
                 if (req.file && await fs.pathExists(req.file.path)) {
                     await fs.unlink(req.file.path);
                 }
-                res.status(500).json({ error: 'File processing failed', message: error.message });
+                res.status(500).json({
+                    error: 'File processing failed',
+                    message: error.message || 'Unknown error',
+                    details: error.toString()
+                });
             }
         });
     } catch (error) {
