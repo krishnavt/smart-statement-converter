@@ -7,36 +7,62 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
+// Validate environment variables
+const { validateEnvironment } = require('../lib/env-validator');
+try {
+  validateEnvironment({ exitOnError: false });
+} catch (error) {
+  console.error('Environment validation failed:', error.message);
+  if (process.env.NODE_ENV === 'production') {
+    // In production, fail fast
+    process.exit(1);
+  } else {
+    // In development, warn but continue
+    console.warn('⚠️  Continuing with invalid environment (development mode)');
+  }
+}
+
 // Import existing modules
 const { db } = require('../lib/supabase');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-// Create Express app  
+// Import security modules
+const {
+  configureHelmet,
+  configureCORS,
+  createGeneralRateLimiter,
+  createAuthRateLimiter,
+  createUploadRateLimiter,
+  sanitizeInput,
+  validateFileUpload,
+  securityHeaders
+} = require('../lib/security');
+const { initSentry, sentryErrorHandler, captureException } = require('../lib/sentry');
+
+// Create Express app
 const app = express();
 
 // Force deployment timestamp
 console.log('🚀 VERCEL DEPLOYMENT:', new Date().toISOString());
 
-// Middleware
-app.use(cors());
+// Initialize Sentry (must be first)
+initSentry(app);
+
+// Security headers (helmet)
+app.use(configureHelmet());
+
+// CORS with security
+app.use(cors(configureCORS()));
+
+// Body parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Content Security Policy for Google Sign-In
-app.use((req, res, next) => {
-    res.setHeader('Content-Security-Policy', 
-        "default-src 'self'; " +
-        "script-src 'self' 'unsafe-inline' https://accounts.google.com https://js.stripe.com; " +
-        "style-src 'self' 'unsafe-inline' https://accounts.google.com; " +
-        "style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; " +
-        "frame-src 'self' https://accounts.google.com https://js.stripe.com; " +
-        "connect-src 'self' https://accounts.google.com https://api.stripe.com; " +
-        "img-src 'self' data: https:; " +
-        "font-src 'self' data:; " +
-        "frame-ancestors 'self';"
-    );
-    next();
-});
+// General rate limiting
+app.use('/api/', createGeneralRateLimiter());
+
+// Additional security headers
+app.use(securityHeaders);
 
 // Manual static file serving for Vercel
 const serveStaticFile = (req, res, next) => {
@@ -150,7 +176,7 @@ app.get('/api/debug-files', (req, res) => {
 });
 
 // File upload endpoint (simplified for Vercel)
-app.post('/api/upload', async (req, res) => {
+app.post('/api/upload', createUploadRateLimiter(), validateFileUpload, async (req, res) => {
     try {
         const multer = require('multer');
         const upload = multer({
@@ -892,7 +918,8 @@ app.get('/api/register', (req, res) => {
 });
 
 // Google OAuth endpoint
-app.post('/api/auth/google', async (req, res) => {
+// Auth rate limiting
+app.post('/api/auth/google', createAuthRateLimiter(), async (req, res) => {
     try {
         console.log('🔍 Google OAuth request received');
         const { credential } = req.body;
@@ -1271,7 +1298,7 @@ app.get('/api/stripe-config', (req, res) => {
 });
 
 // Convert endpoint (simplified for Vercel)
-app.post('/api/convert', async (req, res) => {
+app.post('/api/convert', createUploadRateLimiter(), validateFileUpload, sanitizeInput, async (req, res) => {
     try {
         const multer = require('multer');
         const upload = multer({
@@ -1442,11 +1469,33 @@ app.get('/terms', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'terms.html'));
 });
 
+// Sentry error handler (must be before other error handlers)
+app.use(sentryErrorHandler());
+
 // Error handling middleware
 app.use((error, req, res, next) => {
-    res.status(500).json({
-        error: 'Internal server error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    // Log to Sentry if not already captured
+    if (error.status >= 500 || !error.status) {
+        captureException(error, {
+            user: req.user ? { id: req.user.id } : undefined,
+            request: {
+                method: req.method,
+                url: req.url,
+                headers: req.headers,
+            },
+            tags: {
+                endpoint: req.path,
+                method: req.method,
+            }
+        });
+    }
+
+    // Send error response
+    const statusCode = error.status || 500;
+    res.status(statusCode).json({
+        error: error.name || 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? error.message :
+                 statusCode >= 500 ? 'Something went wrong' : error.message
     });
 });
 

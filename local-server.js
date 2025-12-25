@@ -1,4 +1,14 @@
 require('dotenv').config();
+
+// Validate environment variables
+const { validateEnvironment } = require('./lib/env-validator');
+try {
+  validateEnvironment({ exitOnError: false });
+} catch (error) {
+  console.error('Environment validation failed:', error.message);
+  console.warn('⚠️  Continuing with invalid environment (development mode)');
+}
+
 const express = require('express');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
