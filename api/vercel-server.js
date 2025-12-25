@@ -1169,16 +1169,19 @@ app.get('/api/debug-user', async (req, res) => {
 app.get('/api/check-credit-limits', async (req, res) => {
     try {
         const { userId } = req.query;
-        
+
         if (!userId) {
             return res.status(400).json({ error: 'User ID is required' });
         }
-        
+
+        console.log('💳 Checking credit limits for userId:', userId);
         const creditLimits = await db.checkCreditLimits(userId);
+        console.log('💳 Credit limits result:', JSON.stringify(creditLimits));
         res.json(creditLimits);
     } catch (error) {
-        console.error('Credit limits check error:', error);
-        res.status(500).json({ error: 'Failed to check credit limits' });
+        console.error('💳 Credit limits check error:', error);
+        console.error('💳 Error stack:', error.stack);
+        res.status(500).json({ error: 'Failed to check credit limits', message: error.message });
     }
 });
 
