@@ -66,8 +66,9 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Skip API calls and external resources
-    if (url.pathname.startsWith('/api/') || 
+    // Skip API calls, OAuth callback, and external resources
+    if (url.pathname.startsWith('/api/') ||
+        url.pathname.includes('oauth-callback') ||
         url.hostname !== location.hostname) {
         return;
     }

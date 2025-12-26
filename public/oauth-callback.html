@@ -2,6 +2,9 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Authentication Successful</title>
     <style>
         body {
@@ -31,6 +34,10 @@
     </div>
 
     <script>
+        console.log('OAuth callback page loaded');
+        console.log('window.opener:', window.opener);
+        console.log('URL hash:', window.location.hash);
+
         // Extract tokens from URL fragment
         const fragment = window.location.hash.substring(1);
         const params = new URLSearchParams(fragment);
@@ -39,22 +46,43 @@
         const accessToken = params.get('access_token');
         const state = params.get('state');
 
-        if (idToken && window.opener) {
-            // Send token to parent window
-            window.opener.postMessage({
-                type: 'google-auth-success',
-                id_token: idToken,
-                access_token: accessToken,
-                state: state
-            }, window.location.origin);
+        console.log('ID Token present:', !!idToken);
+        console.log('State:', state);
 
-            // Close popup after a brief delay
-            setTimeout(() => {
-                window.close();
-            }, 1000);
+        if (idToken) {
+            // Try to send to opener first
+            if (window.opener && !window.opener.closed) {
+                console.log('Sending message to opener window');
+                window.opener.postMessage({
+                    type: 'google-auth-success',
+                    id_token: idToken,
+                    access_token: accessToken,
+                    state: state
+                }, window.location.origin);
+
+                setTimeout(() => {
+                    window.close();
+                }, 1000);
+            } else {
+                // Fallback: try to use localStorage to communicate
+                console.log('No opener, using localStorage fallback');
+                localStorage.setItem('google_auth_response', JSON.stringify({
+                    type: 'google-auth-success',
+                    id_token: idToken,
+                    access_token: accessToken,
+                    state: state,
+                    timestamp: Date.now()
+                }));
+
+                // Try to redirect to main page
+                setTimeout(() => {
+                    window.location.href = '/api/login?auth=success';
+                }, 1000);
+            }
         } else {
+            console.error('No ID token found in URL');
             document.querySelector('.container').innerHTML =
-                '<h2>Authentication Failed</h2><p>Missing token or invalid window context.</p>';
+                '<h2>Authentication Failed</h2><p>Missing token in response.</p>';
         }
     </script>
 </body>
