@@ -25,6 +25,8 @@ try {
 // Import existing modules
 const { db } = require('../lib/supabase');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { OAuth2Client } = require('google-auth-library');
+const jwt = require('jsonwebtoken');
 
 // Import security modules
 const {
@@ -988,9 +990,8 @@ app.post('/api/auth/google', createAuthRateLimiter(), async (req, res) => {
         }
         
         console.log('🔑 Verifying Google token...');
-        
+
         // Verify Google token
-        const { OAuth2Client } = require('google-auth-library');
         const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
         
         const ticket = await client.verifyIdToken({
@@ -1023,7 +1024,6 @@ app.post('/api/auth/google', createAuthRateLimiter(), async (req, res) => {
         }
         
         // Create JWT token
-        const jwt = require('jsonwebtoken');
         const sessionToken = jwt.sign(
             { 
                 userId: userData.id, 
