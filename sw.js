@@ -1,7 +1,7 @@
 // Service Worker for Smart Statement Converter PWA
-const CACHE_NAME = 'smart-statement-converter-v2';
-const STATIC_CACHE = 'static-v2';
-const DYNAMIC_CACHE = 'dynamic-v2';
+const CACHE_NAME = 'smart-statement-converter-v3';
+const STATIC_CACHE = 'static-v3';
+const DYNAMIC_CACHE = 'dynamic-v3';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
@@ -22,14 +22,30 @@ self.addEventListener('install', (event) => {
         caches.open(STATIC_CACHE)
             .then((cache) => {
                 console.log('Caching static files');
-                return cache.addAll(STATIC_FILES);
+                // Cache files individually to avoid failure on missing files
+                return Promise.all(
+                    STATIC_FILES.map((url) => {
+                        return fetch(url)
+                            .then((response) => {
+                                if (response.ok) {
+                                    return cache.put(url, response);
+                                } else {
+                                    console.warn('Failed to cache:', url, response.status);
+                                }
+                            })
+                            .catch((error) => {
+                                console.warn('Error caching file:', url, error.message);
+                            });
+                    })
+                );
             })
             .then(() => {
-                console.log('Static files cached successfully');
+                console.log('Static files cached (with possible warnings)');
                 return self.skipWaiting();
             })
             .catch((error) => {
-                console.error('Error caching static files:', error);
+                console.error('Error during cache installation:', error);
+                return self.skipWaiting(); // Continue anyway
             })
     );
 });
