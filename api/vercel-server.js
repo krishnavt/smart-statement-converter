@@ -664,6 +664,7 @@ app.get('/api/login', (req, res) => {
 
         async function handleAuthSuccess(authData) {
             console.log('Processing auth success');
+            console.log('Auth data:', authData);
 
             const response = await fetch('/api/auth/google', {
                 method: 'POST',
@@ -672,12 +673,16 @@ app.get('/api/login', (req, res) => {
             });
 
             const data = await response.json();
+            console.log('API response:', data);
+
             if (data.success) {
                 localStorage.setItem('userData', JSON.stringify(data.user));
                 localStorage.setItem('userToken', data.token);
                 window.location.href = '/';
             } else {
-                alert('Authentication failed: ' + data.error);
+                const errorMsg = data.message || data.error || 'Unknown error';
+                console.error('Auth failed:', errorMsg, data);
+                alert('Authentication failed: ' + errorMsg);
             }
         }
 
@@ -860,6 +865,7 @@ app.get('/api/register', (req, res) => {
 
         async function handleAuthSuccess(authData) {
             console.log('Processing auth success');
+            console.log('Auth data:', authData);
 
             const response = await fetch('/api/auth/google', {
                 method: 'POST',
@@ -868,12 +874,16 @@ app.get('/api/register', (req, res) => {
             });
 
             const data = await response.json();
+            console.log('API response:', data);
+
             if (data.success) {
                 localStorage.setItem('userData', JSON.stringify(data.user));
                 localStorage.setItem('userToken', data.token);
                 window.location.href = '/';
             } else {
-                alert('Authentication failed: ' + data.error);
+                const errorMsg = data.message || data.error || 'Unknown error';
+                console.error('Auth failed:', errorMsg, data);
+                alert('Authentication failed: ' + errorMsg);
             }
         }
 
