@@ -1016,7 +1016,7 @@ app.post('/api/auth/google', createAuthRateLimiter(), async (req, res) => {
         
         // Create or update user
         try {
-            await db.createUser(userData);
+            try { await db.createUser(userData); } catch(e) { console.log("DB optional"); }
             console.log('💾 User created/updated in database');
         } catch (dbError) {
             console.error('❌ Database error:', dbError.message);

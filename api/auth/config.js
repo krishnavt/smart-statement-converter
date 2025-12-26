@@ -37,3 +37,4 @@ export default function handler(req, res) {
     console.log('🔧 Sending response:', responseData);
     res.json(responseData);
 }// Deployment trigger - credentials updated
+// Environment variables updated
