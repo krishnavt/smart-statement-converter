@@ -1045,11 +1045,15 @@ app.post('/api/auth/google', createAuthRateLimiter(), async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Google OAuth error:', error.message);
-        console.error('Error details:', error);
-        res.status(401).json({ 
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+
+        res.status(500).json({
             error: 'Authentication failed',
-            message: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            message: error.message || 'Unknown error during authentication',
+            errorType: error.name,
+            details: error.stack
         });
     }
 });
