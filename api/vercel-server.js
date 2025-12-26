@@ -639,11 +639,19 @@ app.get('/api/login', (req, res) => {
         let googleClientId = '';
 
         // Check for localStorage auth response (fallback from popup)
+        let authCheckInterval = null;
+
         function checkLocalStorageAuth() {
             const authResponse = localStorage.getItem('google_auth_response');
             if (authResponse) {
                 console.log('Found auth response in localStorage');
                 localStorage.removeItem('google_auth_response');
+
+                // Stop polling
+                if (authCheckInterval) {
+                    clearInterval(authCheckInterval);
+                    authCheckInterval = null;
+                }
 
                 try {
                     const data = JSON.parse(authResponse);
@@ -675,6 +683,9 @@ app.get('/api/login', (req, res) => {
 
         // Check on page load
         checkLocalStorageAuth();
+
+        // Poll for localStorage changes (for popup fallback)
+        authCheckInterval = setInterval(checkLocalStorageAuth, 500);
 
         fetch('/api/auth/config')
             .then(response => response.json())
@@ -824,11 +835,19 @@ app.get('/api/register', (req, res) => {
         let googleClientId = '';
 
         // Check for localStorage auth response (fallback from popup)
+        let authCheckInterval = null;
+
         function checkLocalStorageAuth() {
             const authResponse = localStorage.getItem('google_auth_response');
             if (authResponse) {
                 console.log('Found auth response in localStorage');
                 localStorage.removeItem('google_auth_response');
+
+                // Stop polling
+                if (authCheckInterval) {
+                    clearInterval(authCheckInterval);
+                    authCheckInterval = null;
+                }
 
                 try {
                     const data = JSON.parse(authResponse);
@@ -860,6 +879,9 @@ app.get('/api/register', (req, res) => {
 
         // Check on page load
         checkLocalStorageAuth();
+
+        // Poll for localStorage changes (for popup fallback)
+        authCheckInterval = setInterval(checkLocalStorageAuth, 500);
 
         fetch('/api/auth/config')
             .then(response => response.json())

@@ -74,10 +74,20 @@
                     timestamp: Date.now()
                 }));
 
-                // Try to redirect to main page
+                // Show message and try to close
+                document.querySelector('.container').innerHTML =
+                    '<div class="checkmark">✓</div><h2>Authentication Successful</h2><p>Please close this window and return to the main page.</p>';
+
+                // Try to close after delay
                 setTimeout(() => {
-                    window.location.href = '/api/login?auth=success';
-                }, 1000);
+                    window.close();
+                    // If close didn't work, redirect
+                    setTimeout(() => {
+                        if (!window.closed) {
+                            window.location.href = '/api/login?auth=success';
+                        }
+                    }, 500);
+                }, 2000);
             }
         } else {
             console.error('No ID token found in URL');
