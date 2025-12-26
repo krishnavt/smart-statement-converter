@@ -77,3 +77,4 @@ create-test-*.js
 # Environment files
 .env.local
 .env.production
+.env*.local
