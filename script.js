@@ -887,22 +887,40 @@ class SmartStatementConverter {
 
             console.log('🔑 Using Google Client ID from config:', config.googleClientId);
 
-            // Initialize Google Sign-In with ID token (not access token)
+            // Use button-based sign-in to avoid postMessage errors
+            // Initialize with ID callback (simpler than One Tap)
             window.google.accounts.id.initialize({
                 client_id: config.googleClientId,
-                callback: this.handleGoogleAuthResponse.bind(this),
-                auto_select: false,
-                cancel_on_tap_outside: true
+                callback: this.handleGoogleAuthResponse.bind(this)
             });
 
-            // Trigger the One Tap prompt
-            window.google.accounts.id.prompt((notification) => {
-                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                    // If One Tap doesn't show, fall back to popup
-                    console.log('One Tap not shown, using popup...');
-                    this.showGooglePopup(config.googleClientId);
+            // Create a temporary div for the Google button
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'fixed';
+            tempDiv.style.top = '50%';
+            tempDiv.style.left = '50%';
+            tempDiv.style.transform = 'translate(-50%, -50%)';
+            tempDiv.style.zIndex = '10000';
+            document.body.appendChild(tempDiv);
+
+            // Render the Google Sign-In button
+            window.google.accounts.id.renderButton(
+                tempDiv,
+                {
+                    theme: 'filled_blue',
+                    size: 'large',
+                    text: 'signin_with',
+                    width: 250
                 }
-            });
+            );
+
+            // Add a close button
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '×';
+            closeBtn.style.cssText = 'position:absolute;top:-10px;right:-10px;background:white;border:2px solid #333;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:20px;';
+            closeBtn.onclick = () => tempDiv.remove();
+            tempDiv.appendChild(closeBtn);
+
         } catch (error) {
             console.error('❌ Google OAuth initialization failed:', error);
             this.showNotification('Google authentication failed. Please try again.', 'error');
@@ -957,6 +975,14 @@ class SmartStatementConverter {
     async handleGoogleAuthResponse(response) {
         try {
             console.log('🔄 Google OAuth response received');
+
+            // Remove the Google Sign-In button overlay if it exists
+            const tempDivs = document.querySelectorAll('div[style*="position: fixed"]');
+            tempDivs.forEach(div => {
+                if (div.style.zIndex === '10000') {
+                    div.remove();
+                }
+            });
 
             if (response.error) {
                 throw new Error(response.error);
