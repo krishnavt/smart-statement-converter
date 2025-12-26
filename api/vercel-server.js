@@ -676,7 +676,7 @@ app.get('/api/login', (req, res) => {
                     const popup = window.open(
                         authUrl.toString(),
                         'Google Sign-In',
-                        `width=${width},height=${height},left=${left},top=${top}`
+                        'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top
                     );
 
                     window.addEventListener('message', async (event) => {
@@ -823,7 +823,7 @@ app.get('/api/register', (req, res) => {
                     const popup = window.open(
                         authUrl.toString(),
                         'Google Sign-In',
-                        `width=${width},height=${height},left=${left},top=${top}`
+                        'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top
                     );
 
                     window.addEventListener('message', async (event) => {
