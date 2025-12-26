@@ -887,16 +887,56 @@ class SmartStatementConverter {
 
             console.log('🔑 Using Google Client ID from config:', config.googleClientId);
 
-            // Initialize Google OAuth
-            window.google.accounts.oauth2.initTokenClient({
+            // Initialize Google Sign-In with ID token (not access token)
+            window.google.accounts.id.initialize({
                 client_id: config.googleClientId,
-                scope: 'email profile',
-                callback: this.handleGoogleAuthResponse.bind(this)
-            }).requestAccessToken();
+                callback: this.handleGoogleAuthResponse.bind(this),
+                auto_select: false,
+                cancel_on_tap_outside: true
+            });
+
+            // Trigger the One Tap prompt
+            window.google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                    // If One Tap doesn't show, fall back to popup
+                    console.log('One Tap not shown, using popup...');
+                    this.showGooglePopup(config.googleClientId);
+                }
+            });
         } catch (error) {
             console.error('❌ Google OAuth initialization failed:', error);
             this.showNotification('Google authentication failed. Please try again.', 'error');
         }
+    }
+
+    showGooglePopup(clientId) {
+        // Fallback to popup if One Tap doesn't work
+        window.google.accounts.id.renderButton(
+            document.createElement('div'),
+            { theme: 'outline', size: 'large' }
+        );
+
+        // Trigger sign-in popup directly
+        const client = window.google.accounts.oauth2.initCodeClient({
+            client_id: clientId,
+            scope: 'email profile openid',
+            ux_mode: 'popup',
+            callback: async (response) => {
+                if (response.code) {
+                    // Exchange code for ID token on backend
+                    const result = await fetch('/api/auth/google', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: response.code })
+                    });
+                    const data = await result.json();
+                    if (data.success) {
+                        this.handleGoogleAuthSuccess(data);
+                    }
+                }
+            }
+        });
+        client.requestCode();
     }
 
     async loadGoogleScript() {
@@ -917,7 +957,7 @@ class SmartStatementConverter {
     async handleGoogleAuthResponse(response) {
         try {
             console.log('🔄 Google OAuth response received');
-            
+
             if (response.error) {
                 throw new Error(response.error);
             }
@@ -936,27 +976,39 @@ class SmartStatementConverter {
             const result = await backendResponse.json();
 
             if (result.success) {
-                // Store user data and token
-                this.currentUser = {
-                    ...result.user,
-                    subscription: { planType: 'free' } // Default subscription
-                };
-                
-                localStorage.setItem('userData', JSON.stringify(this.currentUser));
-                localStorage.setItem('userToken', result.token);
-                
-                console.log('✅ Google authentication successful:', this.currentUser);
-                
-                // Update UI
-                this.updateAuthUI();
-                this.hidePricingForMembers();
-                this.updateMembershipDisplay();
-                
-                // Load subscription from database
-                await this.loadSubscriptionFromDatabase();
-                this.updateMembershipDisplay();
-                
-                this.showNotification('Login successful!', 'success');
+                this.handleGoogleAuthSuccess(result);
+            } else {
+                throw new Error(result.message || 'Authentication failed');
+            }
+        } catch (error) {
+            console.error('❌ Google authentication failed:', error);
+            this.showNotification('Authentication failed. Please try again.', 'error');
+        }
+    }
+
+    handleGoogleAuthSuccess(result) {
+        // Store user data and token
+        this.currentUser = {
+            ...result.user,
+            subscription: { planType: 'free' } // Default subscription
+        };
+
+        localStorage.setItem('userData', JSON.stringify(this.currentUser));
+        localStorage.setItem('userToken', result.token);
+
+        console.log('✅ Google authentication successful:', this.currentUser);
+
+        // Update UI
+        this.updateAuthUI();
+        this.hidePricingForMembers();
+        this.updateMembershipDisplay();
+
+        // Load subscription from database
+        this.loadSubscriptionFromDatabase().then(() => {
+            this.updateMembershipDisplay();
+        });
+
+        this.showNotification('Login successful!', 'success');
                 
                 // Close any open modals
                 this.closeModal('loginModal');
