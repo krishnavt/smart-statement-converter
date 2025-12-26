@@ -876,50 +876,57 @@ class SmartStatementConverter {
 
     async initiateGoogleAuth() {
         try {
-            // Load Google OAuth script if not already loaded
-            if (!window.google) {
-                await this.loadGoogleScript();
-            }
-
             // Fetch the Google Client ID from the backend config
             const configResponse = await fetch('/api/auth/config');
             const config = await configResponse.json();
 
             console.log('🔑 Using Google Client ID from config:', config.googleClientId);
 
-            // Use button-based sign-in to avoid postMessage errors
-            // Initialize with ID callback (simpler than One Tap)
-            window.google.accounts.id.initialize({
-                client_id: config.googleClientId,
-                callback: this.handleGoogleAuthResponse.bind(this)
-            });
+            // Use direct OAuth2 popup flow (no Google library needed)
+            const redirectUri = window.location.origin + '/oauth-callback.html';
+            const scope = 'email profile openid';
+            const state = Math.random().toString(36).substring(7);
 
-            // Create a temporary div for the Google button
-            const tempDiv = document.createElement('div');
-            tempDiv.style.position = 'fixed';
-            tempDiv.style.top = '50%';
-            tempDiv.style.left = '50%';
-            tempDiv.style.transform = 'translate(-50%, -50%)';
-            tempDiv.style.zIndex = '10000';
-            document.body.appendChild(tempDiv);
+            // Store state for verification
+            sessionStorage.setItem('oauth_state', state);
 
-            // Render the Google Sign-In button
-            window.google.accounts.id.renderButton(
-                tempDiv,
-                {
-                    theme: 'filled_blue',
-                    size: 'large',
-                    text: 'signin_with',
-                    width: 250
-                }
+            // Build OAuth2 URL
+            const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+            authUrl.searchParams.set('client_id', config.googleClientId);
+            authUrl.searchParams.set('redirect_uri', redirectUri);
+            authUrl.searchParams.set('response_type', 'token id_token');
+            authUrl.searchParams.set('scope', scope);
+            authUrl.searchParams.set('state', state);
+            authUrl.searchParams.set('nonce', Math.random().toString(36).substring(7));
+
+            // Open popup window
+            const width = 500;
+            const height = 600;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+
+            const popup = window.open(
+                authUrl.toString(),
+                'Google Sign-In',
+                `width=${width},height=${height},left=${left},top=${top}`
             );
 
-            // Add a close button
-            const closeBtn = document.createElement('button');
-            closeBtn.textContent = '×';
-            closeBtn.style.cssText = 'position:absolute;top:-10px;right:-10px;background:white;border:2px solid #333;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:20px;';
-            closeBtn.onclick = () => tempDiv.remove();
-            tempDiv.appendChild(closeBtn);
+            // Listen for message from popup
+            window.addEventListener('message', async (event) => {
+                if (event.origin !== window.location.origin) return;
+
+                if (event.data.type === 'google-auth-success') {
+                    popup?.close();
+
+                    // Verify state
+                    if (event.data.state !== sessionStorage.getItem('oauth_state')) {
+                        throw new Error('State mismatch - possible CSRF attack');
+                    }
+
+                    // Send ID token to backend for verification
+                    await this.handleGoogleAuthResponse({ credential: event.data.id_token });
+                }
+            }, { once: true });
 
         } catch (error) {
             console.error('❌ Google OAuth initialization failed:', error);
