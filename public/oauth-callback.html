@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Authentication Successful</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+        }
+        .checkmark {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="checkmark">✓</div>
+        <h2>Authentication Successful</h2>
+        <p>This window will close automatically...</p>
+    </div>
+
+    <script>
+        // Extract tokens from URL fragment
+        const fragment = window.location.hash.substring(1);
+        const params = new URLSearchParams(fragment);
+
+        const idToken = params.get('id_token');
+        const accessToken = params.get('access_token');
+        const state = params.get('state');
+
+        if (idToken && window.opener) {
+            // Send token to parent window
+            window.opener.postMessage({
+                type: 'google-auth-success',
+                id_token: idToken,
+                access_token: accessToken,
+                state: state
+            }, window.location.origin);
+
+            // Close popup after a brief delay
+            setTimeout(() => {
+                window.close();
+            }, 1000);
+        } else {
+            document.querySelector('.container').innerHTML =
+                '<h2>Authentication Failed</h2><p>Missing token or invalid window context.</p>';
+        }
+    </script>
+</body>
+</html>

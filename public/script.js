@@ -884,36 +884,62 @@ class SmartStatementConverter {
 
     async initiateGoogleAuth() {
         try {
-            // Load Google OAuth script if not already loaded
-            if (!window.google) {
-                await this.loadGoogleScript();
-            }
+            // Fetch the Google Client ID from the backend config
+            const configResponse = await fetch('/api/auth/config');
+            const config = await configResponse.json();
 
-            // Initialize Google OAuth
-            window.google.accounts.oauth2.initTokenClient({
-                client_id: '429528699130-o1c495n7gr2e15iq6rpg16qgf5prkiu5.apps.googleusercontent.com',
-                scope: 'email profile',
-                callback: this.handleGoogleAuthResponse.bind(this)
-            }).requestAccessToken();
+            console.log('🔑 Using Google Client ID from config:', config.googleClientId);
+
+            // Use direct OAuth2 popup flow (no Google library needed)
+            const redirectUri = window.location.origin + '/oauth-callback.html';
+            const scope = 'email profile openid';
+            const state = Math.random().toString(36).substring(7);
+
+            // Store state for verification
+            sessionStorage.setItem('oauth_state', state);
+
+            // Build OAuth2 URL
+            const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+            authUrl.searchParams.set('client_id', config.googleClientId);
+            authUrl.searchParams.set('redirect_uri', redirectUri);
+            authUrl.searchParams.set('response_type', 'token id_token');
+            authUrl.searchParams.set('scope', scope);
+            authUrl.searchParams.set('state', state);
+            authUrl.searchParams.set('nonce', Math.random().toString(36).substring(7));
+
+            // Open popup window
+            const width = 500;
+            const height = 600;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+
+            const popup = window.open(
+                authUrl.toString(),
+                'Google Sign-In',
+                `width=${width},height=${height},left=${left},top=${top}`
+            );
+
+            // Listen for message from popup
+            window.addEventListener('message', async (event) => {
+                if (event.origin !== window.location.origin) return;
+
+                if (event.data.type === 'google-auth-success') {
+                    popup?.close();
+
+                    // Verify state
+                    if (event.data.state !== sessionStorage.getItem('oauth_state')) {
+                        throw new Error('State mismatch - possible CSRF attack');
+                    }
+
+                    // Send ID token to backend for verification
+                    await this.handleGoogleAuthResponse({ credential: event.data.id_token });
+                }
+            }, { once: true });
+
         } catch (error) {
             console.error('❌ Google OAuth initialization failed:', error);
             this.showNotification('Google authentication failed. Please try again.', 'error');
         }
-    }
-
-    async loadGoogleScript() {
-        return new Promise((resolve, reject) => {
-            if (window.google) {
-                resolve();
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.src = 'https://accounts.google.com/gsi/client';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
     }
 
     async handleGoogleAuthResponse(response) {
