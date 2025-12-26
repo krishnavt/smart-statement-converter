@@ -638,6 +638,44 @@ app.get('/api/login', (req, res) => {
     <script>
         let googleClientId = '';
 
+        // Check for localStorage auth response (fallback from popup)
+        function checkLocalStorageAuth() {
+            const authResponse = localStorage.getItem('google_auth_response');
+            if (authResponse) {
+                console.log('Found auth response in localStorage');
+                localStorage.removeItem('google_auth_response');
+
+                try {
+                    const data = JSON.parse(authResponse);
+                    handleAuthSuccess(data);
+                } catch (error) {
+                    console.error('Error parsing localStorage auth:', error);
+                }
+            }
+        }
+
+        async function handleAuthSuccess(authData) {
+            console.log('Processing auth success');
+
+            const response = await fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: authData.id_token })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                localStorage.setItem('userData', JSON.stringify(data.user));
+                localStorage.setItem('userToken', data.token);
+                window.location.href = '/';
+            } else {
+                alert('Authentication failed: ' + data.error);
+            }
+        }
+
+        // Check on page load
+        checkLocalStorageAuth();
+
         fetch('/api/auth/config')
             .then(response => response.json())
             .then(data => {
@@ -784,6 +822,44 @@ app.get('/api/register', (req, res) => {
 
     <script>
         let googleClientId = '';
+
+        // Check for localStorage auth response (fallback from popup)
+        function checkLocalStorageAuth() {
+            const authResponse = localStorage.getItem('google_auth_response');
+            if (authResponse) {
+                console.log('Found auth response in localStorage');
+                localStorage.removeItem('google_auth_response');
+
+                try {
+                    const data = JSON.parse(authResponse);
+                    handleAuthSuccess(data);
+                } catch (error) {
+                    console.error('Error parsing localStorage auth:', error);
+                }
+            }
+        }
+
+        async function handleAuthSuccess(authData) {
+            console.log('Processing auth success');
+
+            const response = await fetch('/api/auth/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential: authData.id_token })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                localStorage.setItem('userData', JSON.stringify(data.user));
+                localStorage.setItem('userToken', data.token);
+                window.location.href = '/';
+            } else {
+                alert('Authentication failed: ' + data.error);
+            }
+        }
+
+        // Check on page load
+        checkLocalStorageAuth();
 
         fetch('/api/auth/config')
             .then(response => response.json())
