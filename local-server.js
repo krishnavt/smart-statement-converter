@@ -130,7 +130,6 @@ function validateUploadedFile(file) {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('.')); // Serve static files from current directory
 
 // Ensure upload directories exist (only in local development)
 const uploadDir = './uploads';
@@ -1866,6 +1865,15 @@ app.get('/api/test-subscription', (req, res) => {
         message: 'API endpoint is working',
         timestamp: new Date().toISOString()
     });
+});
+
+// Serve static files AFTER all API routes are registered
+// Exclude /api directory from static file serving to prevent conflicts
+app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+        return next();
+    }
+    express.static('.')(req, res, next);
 });
 
 // Start server

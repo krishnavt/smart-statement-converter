@@ -881,9 +881,15 @@ class SmartStatementConverter {
                 await this.loadGoogleScript();
             }
 
+            // Fetch the Google Client ID from the backend config
+            const configResponse = await fetch('/api/auth/config');
+            const config = await configResponse.json();
+
+            console.log('🔑 Using Google Client ID from config:', config.googleClientId);
+
             // Initialize Google OAuth
             window.google.accounts.oauth2.initTokenClient({
-                client_id: '429528699130-o1c495n7gr2e15iq6rpg16qgf5prkiu5.apps.googleusercontent.com',
+                client_id: config.googleClientId,
                 scope: 'email profile',
                 callback: this.handleGoogleAuthResponse.bind(this)
             }).requestAccessToken();
