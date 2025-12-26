@@ -584,7 +584,6 @@ app.get('/api/login', (req, res) => {
     <title>Login - Smart Statement Converter</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:;">
     <link rel="stylesheet" href="/styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <header class="header">
@@ -756,7 +755,6 @@ app.get('/api/register', (req, res) => {
     <title>Register - Smart Statement Converter</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-elem 'self' 'unsafe-inline' https://accounts.google.com; frame-src 'self' https://accounts.google.com; connect-src 'self' https://accounts.google.com; img-src 'self' data: https:;">
     <link rel="stylesheet" href="/styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <header class="header">

@@ -895,7 +895,6 @@ app.get('/api/login', (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Smart Statement Converter</title>
     <link rel="stylesheet" href="/styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <header class="header">
@@ -1049,7 +1048,6 @@ app.get('/api/profile', (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile - Smart Statement Converter</title>
     <link rel="stylesheet" href="/styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <header class="header">
@@ -1327,7 +1325,6 @@ app.get('/api/register', (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Smart Statement Converter</title>
     <link rel="stylesheet" href="/styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <header class="header">

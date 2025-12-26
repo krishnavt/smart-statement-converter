@@ -9,7 +9,6 @@ export default function handler(req, res) {
     <meta name="description" content="Login to Smart Statement Converter to access your account and convert PDF bank statements.">
     <link rel="stylesheet" href="/styles.css">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <!-- Header -->
